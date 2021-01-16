@@ -32,4 +32,28 @@ Raa(k,q) := block(
     [k[1]*k[3]*v-k[2]*s, k[2]*k[3]*v+k[1]*s, k[3]^2*v+c])
 )$
 
+/* Roll - pitch - yaw */
+R_RPW(r,p,w) := block(
+  [cr : cos(r), sr : sin(r), 
+   cp : cos(p), sp : sin(p),
+   cw : cos(w), sw : sin(w)],
+  matrix(
+    [cr*cp, -sr*cw+cr*sp*sw,  sr*sw+cr*sp*cw],
+    [sr*cp,  cr*cw+sr*sp*sw, -cr*sw+sr*sp*cw],
+    [  -sp,           cp*sw,           cp*cw])
+)$
 
+/* Euler angles */
+
+R_XYZ(a,b,c) := Rx(a) . Ry(b) . Rz(c)$ 
+R_XYX(a,b,c) := Rx(a) . Ry(b) . Rx(c)$
+R_XZX(a,b,c) := Rx(a) . Rz(b) . Rx(c)$
+R_XZY(a,b,c) := Rx(a) . Rz(b) . Ry(c)$
+R_YXY(a,b,c) := Ry(a) . Rx(b) . Ry(c)$
+R_YXZ(a,b,c) := Ry(a) . Rx(b) . Rz(c)$
+R_YZX(a,b,c) := Ry(a) . Rz(b) . Rx(c)$
+R_YZY(a,b,c) := Ry(a) . Rz(b) . Ry(c)$
+R_ZXY(a,b,c) := Rz(a) . Rx(b) . Ry(c)$
+R_ZXZ(a,b,c) := Rz(a) . Rx(b) . Rz(c)$
+R_ZYX(a,b,c) := Rz(a) . Ry(b) . Rx(c)$  /* == R_RPW */
+R_ZYZ(a,b,c) := Rz(a) . Ry(b) . Rz(c)$
