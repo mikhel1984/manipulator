@@ -22,7 +22,7 @@ Rz(q) := block(
 )$
 
 /* Axis - angle */
-/* Represent as [theta, [kx,ky,kz]] */
+/* Represent as '[kx,ky,kz], q' */
 Raa(k,q) := block(
   [c : cos(q), s : sin(q), v],
   v : 1 - c,
@@ -31,6 +31,14 @@ Raa(k,q) := block(
     [k[1]*k[2]*v+k[3]*s, k[2]^2*v+c, k[2]*k[3]*v-k[1]*s],
     [k[1]*k[3]*v-k[2]*s, k[2]*k[3]*v+k[1]*s, k[3]^2*v+c])
 )$
+
+/* Unit quaternion */
+/* Represent as [w,i,j,k] */
+Rquat(q) := 
+  matrix(
+    [    1-2*(q[3]^2+q[4]^2), 2*(q[2]*q[3]-q[4]*q[1]), 2*(q[2]*q[4]+q[3]*q[1])],
+    [2*(q[2]*q[3]+q[4]*q[1]),     1-2*(q[2]^2+q[4]^2), 2*(q[3]*q[4]-q[2]*q[1])],
+    [2*(q[2]*q[4]-q[3]*q[1]), 2*(q[3]*q[4]+q[2]*q[1]),     1-2*(q[2]^2+q[3]^2)])$
 
 /* Roll - pitch - yaw */
 R_RPW(r,p,w) := block(
