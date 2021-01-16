@@ -1,0 +1,35 @@
+/*------- rotations.mac -----
+
+Description of orientation.
+
+  2021, Stanislav Mikhel
+-----------------------------*/
+
+/* X axis */
+Rx(q) := block(
+  [c : cos(q), s : sin(q)],
+  matrix([1,0,0], [0,c,-s], [0,s,c])
+)$
+/* Y axis */
+Ry(q) := block(
+  [c : cos(q), s : sin(q)],
+  matrix([c,0,s], [0,1,0], [-s,0,c])
+)$
+/* Z axis */
+Rz(q) := block(
+  [c : cos(q), s : sin(q)],
+  matrix([c,-s,0], [s,c,0], [0,0,1])
+)$
+
+/* Axis - angle */
+/* Represent as [theta, [kx,ky,kz]] */
+Raa(k,q) := block(
+  [c : cos(q), s : sin(q), v],
+  v : 1 - c,
+  matrix(
+    [k[1]^2*v+c, k[1]*k[2]*v-k[3]*s, k[1]*k[3]*v+k[2]*s],
+    [k[1]*k[2]*v+k[3]*s, k[2]^2*v+c, k[2]*k[3]*v-k[1]*s],
+    [k[1]*k[3]*v-k[2]*s, k[2]*k[3]*v+k[1]*s, k[3]^2*v+c])
+)$
+
+

@@ -1,0 +1,523 @@
+/*------ manipulator.mac -----
+
+Funcitons for kinematic trees.
+
+  2021, Stanislav Mikhel
+-----------------------------*/
+
+batchload("rotations.mac")$
+
+Pos(x,y,z) := matrix([x],[y],[z])$
+_eye3_ : ident(3)$
+_vec0_ : Pos(0,0,0)$
+_revolute_: true$
+/*         Ixx Ixy Ixz Iyy Iyz Izz rx ry rz m */
+_inert0_ : [0,  0,  0,  0,  0,  0, 0, 0, 0, 0]$
+
+/* Storage */
+_kin_tree_ : []$
+
+Cross(v1,v2) := matrix(
+  [v1[2][1]*v2[3][1]-v1[3][1]*v2[2][1]],
+  [v1[3][1]*v2[1][1]-v1[1][1]*v2[3][1]],
+  [v1[1][1]*v2[2][1]-v1[2][1]*v2[1][1]])$
+
+/* Link 
+ id - index
+ parent - parent joint, id
+ child - list of child joints (id-s)
+ inertial - list of inertial parameters:
+   Ixx Ixy Ixz Iyy Iyz Izz - elements of the inertia tensor
+   rx ry rz - center of mass
+   m - link mass
+*/
+defstruct(LinkStruct(parent=none,child=[],id,inertial=_inert0_))$
+
+/* Joint
+ id - index
+ parent - parent link, id
+ child - child link, id
+ pos - transformation w.r.t previoud joint:
+   rotation and translation
+ fn - joint transformation function:
+   rotation translation axis type [angle velocity acceleration] 
+ state - current state in space
+   orientation position
+ tau - current torque
+*/
+defstruct(JointStruct(pos=[_eye3_,_vec0_],fn=[_eye3_,_vec0_,0,false,[0,0,0]],
+                      parent=none,child=none,id,state=[_eye3_,_vec0_],tau=0))$
+
+find_base(v) := if is(v@parent=none) then v else find_base(_kin_tree_[v@parent])$
+
+linkp(v) := listp(v@child)$
+jointp(v) := not(linkp(v))$
+
+addChild(v1,v2) := block(
+  if jointp(v1) then (
+    if jointp(v2) then 
+      /* add intermediate link */
+      addChild(addChild(v1, Link([])), v2)
+    else (
+      v1@child : v2@id,
+      v2@parent : v1@id,
+      v2
+    )
+  ) else (
+    if linkp(v2) then 
+      /* add intermediate joint */
+      addChild(addChild(v1, Joint([],[],[])), v2)
+    else (
+      v1@child : cons(v2@id,v1@child),
+      v2@parent : v1@id,
+      v2
+    )
+  )
+)$
+
+/* List/joint sequence */
+infix("++")$
+"++"(v1,v2) := addChild(v1,v2)$
+
+Link(inertial) := block(
+  [res : new(LinkStruct)],
+  if not(emptyp(inertial)) then res@inertial : inertial,
+  _kin_tree_ : endcons(res,_kin_tree_),
+  res@id : length(_kin_tree_),
+  res
+)$
+
+Joint(fn,rot,pos) := block(
+  [res : new(JointStruct)],
+  if not(emptyp(fn)) then (res@fn : fn),
+  if matrixp(rot) then (res@pos[1] : rot), 
+  if matrixp(pos) then (res@pos[2] : pos),
+  _kin_tree_ : endcons(res,_kin_tree_),
+  res@id : length(_kin_tree_),
+  res
+)$
+
+by_id(n) := _kin_tree_[n]$
+
+get_pos(v) := v@state[2]$ 
+get_rot(v) := v@state[1]$
+get_axis(v) := col(v@state[1],v@fn[3])$
+/* get variable names */
+get_q(v)   := v@fn[5][1]$
+get_dq(v)  := v@fn[5][2]$
+get_ddq(v) := v@fn[5][3]$
+get_torque(v) := v@tau$
+
+/* Equal homogenous transformation */
+Homo(tran) := addrow(addcol(tran[1],tran[2]),matrix([0,0,0,1]))$
+
+/* Joint functions */
+/* rotation - translation - axis - type - [angle, velocity, acceleration] */
+rotX(q) := [Rx(q),_vec0_,1,_revolute_,_pos_vel_acc(q)]$
+rotY(q) := [Ry(q),_vec0_,2,_revolute_,_pos_vel_acc(q)]$
+rotZ(q) := [Rz(q),_vec0_,3,_revolute_,_pos_vel_acc(q)]$
+tranX(q) := [_eye3_,Pos(q,0,0),1,not(_revolute_),_pos_vel_acc(q)]$
+tranY(q) := [_eye3_,Pos(0,q,0),2,not(_revolute_),_pos_vel_acc(q)]$
+tranZ(q) := [_eye3_,Pos(0,0,q),3,not(_revolute_),_pos_vel_acc(q)]$
+
+_pos_vel_acc(q) := if symbolp(q) then [q,concat('d,q),concat('dd,q)] else [q,0,0]$
+
+revolutep(v) := v@fn[4]$
+movablep(v) := is(v@fn[3] # 0)$
+prismaticp(v) := movablep(v) and not(revolutep(v))$
+
+/* Forward kinematics */
+
+_transform(t1,t2) := block(
+  [R: t1[1]],
+  [R . t2[1], R . t2[2] + t1[2]]
+)$
+
+_next_joints(v) := if is(v@child = none) then [] else by_id(v@child)@child $
+
+_update_kin_state(stack,chd,frame) := block(
+  [c ],
+  if emptyp(chd) then (
+    if emptyp(stack) then
+      "Done"
+    else (
+      c : by_id(first(stack)),
+      _update_kin_state(rest(stack),_next_joints(c),_transform(c@state, c@fn))
+    )
+  ) else (
+    c : by_id(first(chd)),
+    c@state : _transform(frame, c@pos),
+    _update_kin_state(cons(c@id,stack), rest(chd), frame)
+  )
+)$
+
+update_state(v) := block(
+  [c : find_base(v)], 
+  if linkp(c) then error("Root must be a joint!"),
+  _update_kin_state([c@id],[],[])
+)$
+
+/* Jacobian */
+
+_jac_add(v,w,J) := if is(J=none) then addrow(v,w) else addcol(addrow(v,w),J)$
+
+_jac_column(n,ee,J) := block(
+  [v],
+  if is(n=none) then 
+    J
+  else (
+    v : by_id(n),
+    if linkp(v) or is(v@fn[3]=0) then  /* 3rd is axis of rotation */
+      /* link or fixed joint */
+      _jac_column(v@parent,ee,J) 
+    elseif revolutep(v) then 
+      _jac_column(v@parent,ee,
+        _jac_add(Cross(get_axis(v), ee-get_pos(v)), get_axis(v), J))
+    else /* translational */
+      _jac_column(v@parent,ee,
+        _jac_add(get_axis(v), _vec0_, J))
+  )
+)$
+
+Jacobian(jnt) := _jac_column(jnt@parent,get_pos(jnt),none)$
+
+/* Make object form a list of transformations */
+
+_get_var(obj,vars,i) := 
+  if emptyp(vars) then 
+    0 
+  elseif not(freeof(first(vars),obj)) then 
+    i 
+  else 
+    _get_var(obj,rest(vars),i+1)
+$
+
+/* 
+  lst - list of transformations
+  vars - list of variables 
+  state - transformation to current joint [rot,pos] 
+  fLast - flag that new joint is required 
+  v - joint pointer
+*/
+
+_from_trans_list(lst,vars,state,fLast,v) := block(
+  [m,j],
+  if emptyp(lst) then (
+    if fLast then addChild(v, Joint([],state[1],state[2])) else v
+  ) else (
+    m : first(lst),
+    if is(_get_var(m[1],vars,1)=0) and is(_get_var(m[2],vars,1)=0) then 
+      _from_trans_list(rest(lst),vars,_transform(state,m),true,v) 
+    else (
+      if is(v # none) then 
+        _from_trans_list(rest(lst),vars,[_eye3_,_vec0_],false,addChild(v,Joint(m,state[1],state[2]))) 
+      else (
+        j : Joint(m,state[1],state[2]),
+        _from_trans_list(rest(lst),vars,[_eye3_,_vec0_],false,
+          if fLast then addChild(Joint([],[],[]),j) else j)
+      )
+    )
+  )
+)$
+
+from_list(lst,vars) := _from_trans_list(lst,vars,[_eye3_,_vec0_],false,none)$
+
+/* Make object from a list of DH parameters */
+/* [ [a, alpha, d, theta] ] */
+
+_from_dh_list(lst,vars,state,v) := block(
+  [m,s,j],
+  if emptyp(lst) then 
+    addChild(v, Joint([],state[1],state[2])) 
+  else (
+    m : first(lst),
+    s : _transform(tranX(m[1]),rotX(m[2])),
+    if member(m[3],vars) then ( 
+      /* translation */
+      s : _transform(rotZ(m[4]),s),
+      j : Joint(tranZ(m[3]),state[1],state[2])
+    ) else (                    
+      /* rotation */
+      s : _transform(tranZ(m[3]),s),
+      j : Joint(rotZ(m[4]),state[1],state[2])
+    ),
+    _from_dh_list(rest(lst),vars,s,
+         if is(v=none) then j else addChild(v,j))
+  )
+)$
+
+from_dh(lst,vars) := _from_dh_list(lst,vars,[_eye3_,_vec0_],none)$
+
+
+/* Print structure */
+
+_str_jnt(v,stack,pos) := block(
+  printf(true,"J~2d", v@id),
+  if is(v@child # none) then (
+    printf(true," --"),
+    _str_link(by_id(v@child), stack, pos+2)
+  ) else 
+    _str_empty(true, stack)
+)$
+
+_str_link(v,stack,pos) := block(
+  [c,i],
+  printf(true,"L~2d", v@id),
+  c : v@child,
+  if emptyp(c) then 
+    _str_empty(true, stack)
+  else (
+    if is(length(c) > 1) then (
+      /* add [position,id] to list */
+      for i in rest(c) do 
+        stack : cons([pos+1,i], stack),  
+      printf(true," +-")
+    ) else 
+      printf(true," --"),
+    _str_jnt(by_id(first(c)), stack, pos+2)
+  ) 
+)$
+
+_str_empty(nline,stack) := block(
+  [i,j],
+  if nline then newline(), 
+  if emptyp(stack) then 
+    "Done"
+  else (
+    for i: length(stack) step -1 thru 1 do (
+      for j: 2 thru stack[i][1] do printf(true,"   "),
+      if is(i # 1) then printf(true," | ")
+    ),
+    if nline then (
+      printf(true," | "), 
+      newline(),
+      _str_empty(false,stack)
+    ) else (
+      printf(true," +-"),
+      i : first(stack),
+      _str_jnt(by_id(i[2]), rest(stack), i[1]+1)
+    )
+  )
+)$
+
+print_tree(v) := block(
+  [w : find_base(v)],
+  if jointp(w) then 
+    _str_jnt(w, [], 1)
+  else
+    _str_link(w, [], 1)
+)$
+
+/*   Draw   */
+
+_disp_line(A,B) := block(
+  [%1: (B-A) * 'u + A],
+  [color=black,
+   line_width=2,
+   parametric(%1[1][1], %1[2][1], %1[3][1],'u, 0, 1)]
+)$
+
+_disp_frame(R,p) := block(
+  [%1 : col(R,1) * 'u + p,
+   %2 : col(R,2) * 'u + p,
+   %3 : col(R,3) * 'u + p,
+   %4 : 0.1 ],  /* axis line length */
+  [line_width=1,
+   color=red,
+   parametric(%1[1][1], %1[2][1], %1[3][1], 'u, 0, %4),
+   color=green,
+   parametric(%2[1][1], %2[2][1], %2[3][1], 'u, 0, %4),
+   color=blue,
+   parametric(%3[1][1], %3[2][1], %3[3][1], 'u, 0, %4)]
+)$
+
+_collect_disp(stack,acc,env) := block(
+  [%1,%2,%3,c,p],
+  if emptyp(stack) then
+    acc
+  else (
+    c : by_id(first(stack)),
+    p : by_id(by_id(c@parent)@parent),
+    %1 : ev(get_pos(p), env),
+    %2 : ev(get_rot(c), env),
+    %3 : ev(get_pos(c), env),
+    _collect_disp(
+      append(_next_joints(c), rest(stack)),
+      append(_disp_line(%1, %3), _disp_frame(%2, %3), acc),
+      env)
+  )
+)$
+
+/* qs is list [q1=v1,q2=v2...] */
+draw_tree(v,qs) := block(
+  [ %1, %2, %3,   
+    w : find_base(v) ], 
+  %1 : ev(get_rot(w), qs),
+  %2 : ev(get_pos(w), qs),
+  %3 : append(_disp_frame(%1, %2), [xlabel="X", ylabel="Y", zlabel="Z"]),
+  apply(draw3d, _collect_disp(_next_joints(w), %3, qs)),
+  "Done"
+)$
+
+/*  Dynamics */
+
+_axis_dir(v) := col(_eye3_,v@fn[3])$
+
+_I_mat(i) := block(
+  matrix(
+    [i[1],i[2],i[3]],
+    [i[2],i[4],i[5]],
+    [i[3],i[5],i[6]])
+)$
+
+_R_vec(r) := block(
+  matrix([r[7]],[r[8]],[r[9]])
+)$
+
+_M_val(d) := d[10]$
+
+_angular_acc(jnt,w,dw,Rt) := block(
+  [%1,%2],
+  w : Rt . w,
+  dw : Rt . dw,
+  if revolutep(jnt) then (
+    %2 : _axis_dir(jnt),    /* temporary, save axis */
+    %1 : get_dq(jnt) * %2,
+    w : w + %1,
+    dw : dw + Cross(w,%1) + get_ddq(jnt) * %2
+  ),
+  [w,dw] 
+)$
+
+_linear_acc(jnt,a,w,dw,r,Rt) := block(
+  [ %1 ],
+  a : Rt . a + Cross(dw,r) + Cross(w, Cross(w,r)),
+  if prismaticp(jnt) then (
+    %1 : _axis_dir(jnt),
+    a : a + get_ddq(jnt) * %1 + (2*get_dq(jnt)) * Cross(w,%1)
+  ),
+  a
+)$
+
+_get_dynamic(jnt) := by_id(jnt@child)@inertial$
+
+_rnea(jnt,w,dw,ae) := block(
+  [ wi, dwi, 
+    taui:_vec0_, fi:_vec0_, /* unloaded end-effector */
+    dyn, tmp, tau, fc, ri, jc, Rt, loc
+  ],
+  if is(jnt@child#none) then (
+    dyn : _get_dynamic(jnt),
+    ri : _R_vec(dyn),
+    Rt : transpose(jnt@pos[1] . jnt@fn[1]),
+    [wi,dwi] : _angular_acc(jnt, w, dw, Rt),
+    fi : _M_val(dyn) * _linear_acc(jnt, ae, wi, dwi, ri, Rt),
+    tmp : _I_mat(dyn),
+    taui : tmp . dwi + Cross(wi, tmp . wi),
+    /* children */
+    for j in _next_joints(jnt) do (
+      jc : by_id(j),
+      loc : _transform(jc@pos,jc@fn),
+      [fc,tau] : _rnea(jc, wi, dwi, 
+            _linear_acc(jc, ae, wi, dwi, loc[2], Rt)),
+      /* force */
+      fc : loc[1] . fc,
+      fi : fi + fc,
+      /* torque */
+      taui : taui + loc[1] . tau + Cross(fc, ri-loc[2])
+    ),
+    taui : taui - Cross(fi,ri),
+    if movablep(jnt) then 
+       jnt@tau : (if revolutep(jnt) then taui else fi) [ jnt@fn[3] ][1]
+  ),
+  [fi, taui]
+)$
+
+update_dynamics(rbt) := _rnea(find_base(rbt), _vec0_, _vec0_, Pos(0,0,'grav))$
+
+_get_joints(v,ids,acc) := block(
+  [ %1 ],
+  if is(v=none) then (
+    if emptyp(ids) then 
+      reverse(acc)
+    else 
+      _get_joints(first(ids),rest(ids),acc)
+  ) else (
+    %1 : by_id(v),
+    if jointp(%1) then 
+      _get_joints(%1@child, ids, 
+           if movablep(%1) then cons(%1,acc) else acc) 
+    else 
+      _get_joints(none, append(ids,%1@child), acc)
+  )
+)$
+
+get_joints(rbt) := _get_joints(find_base(rbt)@id, [], [])$
+
+_dyn_M(taus,ddqs) := block(
+  [ %1, %2, mat, n ],
+  /* find for zero velocity and gravity */
+  %1 : makelist(ev(x,'grav:0), x, taus),
+  /* make matrix */
+  n : length(taus),
+  mat : zeromatrix(n,n),
+  for i : 1 thru n do (
+    %2 : makelist(if is(x=ddqs[i]) then x=1 else x=0, x, ddqs),
+    for j : i thru n do (
+      mat[i][j] : ev(%1[j], %2),
+      if is(j > i) then 
+        mat[j][i] : mat[i][j]
+    )
+  ),
+  mat
+)$
+
+_dyn_G(taus,ddqs) := block(
+  [ %1, %2 ],
+  %1 : makelist(x=0, x, ddqs), 
+  %2 : makelist(ev(x,%1), x, taus),
+  transpose(%2)
+)$
+
+_dyn_C(M,qs,dqs) := block(
+  [ %1, %2, n, mat, _ind ],
+  /* use upper triangular matrix because M is symmetrical */
+  n : length(qs),
+  mat : zeromatrix(n,n),
+  for i : 1 thru n do (
+    for j : i thru n do
+      mat[i][j] : expand(M[i][j])
+  ),
+  /* derivatives */
+  %1 : makelist(diff(mat,q), q, qs),
+  /* find C */
+  _ind : lambda([m,i,j], if is(j < i) then m[j][i] else m[i][j]),
+  mat : zeromatrix(n,n),
+  for k thru n do (
+    for j thru n do (
+      %2 : 0,
+      for i thru n do (
+        %2 : %2 + (_ind(%1[i],k,j) + _ind(%1[j],k,i) - _ind(%1[k],i,j)) * dqs[i] 
+      ),
+      mat[k][j] : %2 / 2
+    )
+  ),
+  mat
+)$
+
+M_C_G_J(rbt) := block(
+  [ %1, jnts, tau, 
+    dqs, ddqs, M, C, G ],
+  jnts : get_joints(rbt),
+  taus : makelist(get_torque(x), x, jnts),
+  dqs : makelist(get_dq(x), x, jnts),
+  ddqs : makelist(get_ddq(x), x, jnts),
+  /* find torque for zero velocity */
+  %1 : makelist(x=0, x, dqs),
+  taus : makelist(ev(x,%1), x, taus),
+  M : _dyn_M(taus, ddqs),
+  C : _dyn_C(M, makelist(get_q(x),x,jnts), dqs), 
+  G : _dyn_G(taus, ddqs),
+  /* M . transpose(ddqs) + C . transpose(dqs) + G */
+  [M, C, G, jnts]
+)$

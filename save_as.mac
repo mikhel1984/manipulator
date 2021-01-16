@@ -1,0 +1,47 @@
+/*------- save_as.mac ---------
+
+Result representation in form,
+available for other programs.
+
+  2021, Stanislav Mikhel
+------------------------------*/
+
+load(stringproc)$
+
+/* Matrix as a Matlab function */
+matrix_4_matlab(fname,vars,mat) := block(
+   [ f, M, R, C, r, c ],
+   f : opena(sconcat(fname,".m")),
+   /* title */
+   printf(f, "function M = ~a(~a~{,~a~}) ~%",
+          fname, first(vars), rest(vars)),
+   M : float(mat),
+   R : length(mat), C : length(mat[1]), 
+   /* initialize */
+   printf(f, "    M = zeros(~d,~d); ~%", R, C),
+   /* matrix */
+   /* with_stdout(f, fortran(M)),*/
+   for r : 1 thru R do
+      for c : 1 thru C do
+         printf(f, "    M(~d,~d) = ~a; ~%", r, c, string(M[r][c])),
+   printf(f, "end~%"),
+   close(f)
+)$
+
+/* Prepare C code */
+matrix_4_C(fname,vars,mat) := block(
+   [ f, M, R, C, r, c ],
+   f : opena(sconcat(fname, ".c")),
+   /* reminder */
+   printf(f, "/* Variables: ~{~a ~}*/~%", vars),
+   /* numbers as float point */
+   R : length(mat), C : length(mat[1]), 
+   M : float(mat),
+   /* initialize */
+   printf(f, "double M[~d][~d]; ~%", R, C),
+   /* matrix elements */
+   for r : 1 thru R do
+      for c : 1 thru C do
+         printf(f, "    M[~d][~d] = ~a; ~%", r-1, c-1, string(M[r][c])),
+   close(f)
+)$

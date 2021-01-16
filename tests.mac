@@ -1,0 +1,89 @@
+/*-------- tests.mac ----------
+
+List of tests/examples. Call with
+  maxima -b tests.mac
+
+  2021, Stanislav Mikhel
+-------------------------------*/
+
+batchload("manipulator.mac")$
+
+/* Auxiliary functions */
+zerrow(m) := emptyp(m) or (is(first(m)=0) and zerrow(rest(m)))$
+zermat(m) := emptyp(m) or (zerrow(first(m)) and zermat(rest(m)))$
+tst(eqv) := if zermat(eqv) then "Pass" else "Failed"$
+
+/* Tree from list of transformations */
+lst : [rotZ(q1),tranZ(1),rotY(q2),tranX(2),rotY(q3),tranX(3)]$
+rbt1 : from_list(lst,[q1,q2,q3])$
+
+/* Forward kinematics */
+update_state(rbt1);
+rot : ev(get_rot(rbt1), q1:%pi/4, q2:%pi/4, q3:%pi/4)$
+tst(rot - matrix([0,-1/sqrt(2),1/sqrt(2)],[0,1/sqrt(2),1/sqrt(2)],[-1,0,0])); 
+pos : ev(get_pos(rbt1), q1:%pi/4, q2:%pi/4, q3:%pi/4)$
+tst(pos - matrix([1],[1],[-sqrt(2)-2]));
+
+/* Find Jacobian */
+jac: Jacobian(rbt1)$
+res : ev(jac, q1:%pi/2, q2:%pi/2, q3:%pi/2)$
+tst(res - matrix([3,0,0],[0,-2,0],[0,3,3],[0,-1,-1],[0,0,0],[1,0,0]));
+
+/* Build from DH parameters */
+lst : [
+/* a al d th */
+[ 1,  0, 0,q1],
+[ 2,%pi, 0,q2],
+[ 0,  0,d3, 0],
+[ 0,  0,-1,q4]]$
+rbt2 : from_dh(lst,[q1,q2,d3,q4])$ 
+update_state(rbt2)$
+
+rot : ev(get_rot(rbt2), q1:%pi/4, q2:%pi/4, d3:1, q4:%pi/2)$
+tst(rot - matrix([1,0,0],[0,-1,0],[0,0,-1]));
+pos : ev(get_pos(rbt2), q1:%pi/4, q2:%pi/4, d3:1, q4:%pi/2)$
+tst(pos - matrix([1/sqrt(2)],[1/sqrt(2)+2],[0]));
+
+/* Check Jacobian */
+jac : Jacobian(rbt2)$
+res : ev(jac, q1:%pi/2, q2:%pi/2, d3:1, q4:%pi/2)$
+tst(res - matrix([-1,0,0,0],[-2,-2,0,0],[0,0,-1,0],[0,0,0,0],[0,0,0,0],[1,1,0,-1]));
+
+/* Show 3D structure */
+draw_tree(rbt1, [q1=%pi/4, q2=-%pi/2, q3=%pi/2]);
+
+/* Find dynamics */
+jnt1 : Joint(rotZ(q1),[], Pos(0,0,0.346))$
+jnt2 : Joint(rotY(q2),[], Pos(0.312,0,0.324))$
+jnt3 : Joint(rotY(q3),[], Pos(0,0,1.075))$
+
+jnt1 ++ Link([1,0,0,1,0,1.01,0,0,0.1,550]) ++
+jnt2 ++ Link([1,0.01,0,1,0,1,0.2,0,0.2,250]) ++
+jnt3 ++ Link([1,0,0.01,1,0,1,0,0,0.5,60]) ++
+Joint([],[],Pos(0,0,0.6))$
+
+update_state(jnt1)$
+update_dynamics(jnt1)$
+par : [q1=0.1,dq1=0.5,ddq1=1,q2=-0.2,dq2=0.5,ddq2=1,q3=0.3,dq3=0.5,ddq3=1,grav=9.81]$
+res : ev(matrix([get_torque(jnt1),get_torque(jnt2),get_torque(jnt3)]),par)$
+tst(round(res) - matrix([82,-90,35]));
+
+/* Dynamics matrices */
+/* call after 'update_dynamics' */
+[M,C,G,jnts] : M_C_G_J(jnt1)$
+dqs : makelist(get_dq(x), x, jnts)$
+ddqs : makelist(get_ddq(x), x, jnts)$
+res : ev(M . transpose(ddqs) + C . transpose(dqs) + G, par)$
+tst(round(res) - transpose([82,-90,35]));
+
+
+/* Print tree */
+j1 : Joint([],[],[])$ l2 : Link([])$ j3 : Joint([],[],[])$
+j4 : Joint([],[],[])$ l5 : Link([])$ j6 : Joint([],[],[])$
+j7 : Joint([],[],[])$ l8 : Link([])$ l9 : Link([])$
+l10: Link([])$
+
+j1 ++ l2 ++ j3 ++ l5 ++ j6 ++ l9$
+l5 ++ j7 ++ l10$
+l2 ++ j4 ++ l8$
+print_tree(j1);
