@@ -23,7 +23,7 @@ Rz(q) := block(
 
 /* Axis - angle */
 /* Represent as '[kx,ky,kz], q' */
-Raa(k,q) := block(
+R_AA(k,q) := block(
   [c : cos(q), s : sin(q), v],
   v : 1 - c,
   matrix(
@@ -34,25 +34,13 @@ Raa(k,q) := block(
 
 /* Unit quaternion */
 /* Represent as [w,i,j,k] */
-Rquat(q) := 
+R_Q(q) := 
   matrix(
     [    1-2*(q[3]^2+q[4]^2), 2*(q[2]*q[3]-q[4]*q[1]), 2*(q[2]*q[4]+q[3]*q[1])],
     [2*(q[2]*q[3]+q[4]*q[1]),     1-2*(q[2]^2+q[4]^2), 2*(q[3]*q[4]-q[2]*q[1])],
     [2*(q[2]*q[4]-q[3]*q[1]), 2*(q[3]*q[4]+q[2]*q[1]),     1-2*(q[2]^2+q[3]^2)])$
 
-/* Roll - pitch - yaw */
-R_RPW(r,p,w) := block(
-  [cr : cos(r), sr : sin(r), 
-   cp : cos(p), sp : sin(p),
-   cw : cos(w), sw : sin(w)],
-  matrix(
-    [cr*cp, -sr*cw+cr*sp*sw,  sr*sw+cr*sp*cw],
-    [sr*cp,  cr*cw+sr*sp*sw, -cr*sw+sr*sp*cw],
-    [  -sp,           cp*sw,           cp*cw])
-)$
-
 /* Euler angles */
-
 R_XYZ(a,b,c) := Rx(a) . Ry(b) . Rz(c)$ 
 R_XYX(a,b,c) := Rx(a) . Ry(b) . Rx(c)$
 R_XZX(a,b,c) := Rx(a) . Rz(b) . Rx(c)$
@@ -63,5 +51,79 @@ R_YZX(a,b,c) := Ry(a) . Rz(b) . Rx(c)$
 R_YZY(a,b,c) := Ry(a) . Rz(b) . Ry(c)$
 R_ZXY(a,b,c) := Rz(a) . Rx(b) . Ry(c)$
 R_ZXZ(a,b,c) := Rz(a) . Rx(b) . Rz(c)$
-R_ZYX(a,b,c) := Rz(a) . Ry(b) . Rx(c)$  /* == R_RPW */
+R_ZYX(a,b,c) := Rz(a) . Ry(b) . Rx(c)$  
 R_ZYZ(a,b,c) := Rz(a) . Ry(b) . Rz(c)$
+
+/* Roll - pitch - yaw */
+R_RPW(r,p,w) := R_ZYX(r,p,w)$
+
+_euler_ang(as,ac,bs1,bc1,bs2,bc2,cs,cc) := 
+  [[atan2(as,ac), atan2(bs1,bc1), atan2(cs,cc)],
+   [atan2(-as,-ac), atan2(bs2,bc2), atan2(-cs,-cc)]]$
+
+/* Rotation matrix to Euler angles */
+R2Euler(fn,m) := block(
+  [ %1, %2 : [] ],
+  if is(fn=R_XYZ) then (
+    if is(m[2][3]#0) or is(m[3][3]#0) then (
+      %1 : sqrt(1-m[1][3]^2),
+      %2 : _euler_ang(-m[2][3],m[3][3],m[1][3],%1,m[1][3],-%1,-m[1][2],m[1][1])
+    )
+  ) elseif is(fn=R_XYX) then (
+    if is(m[1][2]#0) or is(m[1][3]#0) then (
+      %1 : sqrt(1-m[1][1]^2),
+      %2 : _euler_ang(m[2][1],-m[3][1],%1,m[1][1],-%1,m[1][1],m[1][2],m[1][3])
+    )
+  ) elseif is(fn=R_XZX) then (
+    if is(m[1][2]#0) or is(m[1][3]) then (
+      %1 : sqrt(1-m[1][1]^2),
+      %2 : _euler_ang(m[3][1],m[2][1],%1,m[1][1],-%1,m[1][1],m[1][3],-m[1][2])
+    )
+  ) elseif is(fn=R_XZY) then (
+    if is(m[1][1]#0) or is(m[1][3]#0) then (
+      %1 : sqrt(1-m[1][2]^2),
+      %2 : _euler_ang(m[3][2],m[2][2],-m[1][2],%1,-m[1][2],-%1,m[1][3],m[1][1])
+    )
+  ) elseif is(fn=R_YXY) then (
+    if is(m[2][1]#0) or is(m[2][3]#0) then (
+      %1 : sqrt(1-m[2][2]^2),
+      %2 : _euler_ang(m[1][2],m[3][2],%1,m[2][2],-%1,m[2][2],m[2][1],-m[2][3])
+    )
+  ) elseif is(fn=R_YXZ) then (
+    if is(m[2][1]#0) or is(m[2][2]#0) then (
+      %1 : sqrt(1-m[2][3]^2), 
+      %2 : _euler_ang(m[1][3],m[3][3],-m[2][3],%1,-m[2][3],-%1,m[2][1],m[2][2])
+    )
+  ) elseif is(fn=R_YZX) then (
+    if is(m[2][2]#0) or is(m[2][3]#0) then (
+      %1 : sqrt(1-m[2][1]^2),
+      %2 : _euler_ang(-m[3][1],m[1][1],m[2][1],%1,m[2][1],-%1,-m[2][3],m[2][2])
+    )
+  ) elseif is(fn=R_YZY) then (
+    if is(m[2][1]#0) or is(m[2][3]#0) then (
+      %1 : sqrt(1-m[2][2]^2),
+      %2 : _euler_ang(m[3][2],-m[1][2],%1,m[2][2],-%1,m[2][2],m[2][3],m[2][1])
+    )
+  ) elseif is(fn=R_ZXY) then (
+    if is(m[3][1]#0) or is(m[3][3]#0) then (
+      %1 : sqrt(1-m[3][2]^2),
+      %2 : _euler_ang(-m[1][2],m[2][2],m[3][2],%1,m[3][2],-%1,-m[3][1],m[3][3])
+    )
+  ) elseif is(fn=R_ZXZ) then (
+    if is(m[3][1]#0) or is(m[3][2]#0) then (
+      %1 : sqrt(1-m[3][3]^2),
+      %2 : _euler_ang(m[1][3],-m[2][3],%1,m[3][3],-%1,m[3][3],m[3][1],m[3][2])
+    )
+  ) elseif is(fn=R_ZYX) or is(fn=R_RPW) then (
+    if is(m[3][2]#0) or is(m[3][3]#0) then (
+      %1 : sqrt(1-m[3][1]^2),
+      %2 : _euler_ang(m[2][1],m[1][1],-m[3][1],%1,-m[3][1],-%1,m[3][2],m[3][3])
+    )
+  ) elseif is(fn=R_ZYZ) then (
+    if is(m[3][1]#0) or is(m[3][2]#0) then (
+      %1 : sqrt(1-m[3][3]^2),
+      %2 : _euler_ang(m[2][3],m[1][3],%1,m[3][3],-%1,m[3][3],m[3][2],-m[3][1])
+    )
+  ),
+  %2
+)$
