@@ -1,0 +1,195 @@
+/*-------- fromxml.mac ---------
+
+Simple xml parser. Assumptions:
+- file structure is correct for URDF
+- 'key="value"' without spaces
+- comments are between '<!' and '->'
+- no comments in types and parameters 
+
+  2021, Stanislav Mikhel
+--------------------------------*/
+
+load(stringproc)$
+
+_xml_spacep(c) := member(c, [" ", "~%", "~&", "~t"])$
+
+_xml_string(p) := apply(sconcat,p)$
+
+/* Find next nonspace element */
+_xml_next(ch,strm) := if _xml_spacep(ch) then 
+                        _xml_next(readchar(strm), strm) else ch$
+
+/* Parse 'key="value"' structure, 
+   return [ [[k1,v1], [k2,v2], ...], last_character] */
+_xml_param(ch,strm,acc) := block(
+  [ k, v ],
+  ch : _xml_next(ch,strm),
+  if cequal(ch,"/") or cequal(ch,">") then 
+    [acc, ch]
+  else (
+    k : [], v : [],
+    while not(cequal(ch,"=")) do (
+      k : endcons(ch,k), 
+      ch : readchar(strm)
+    ),
+    readchar(strm),     /* skip '="' */
+    ch : readchar(strm),
+    while not(cequal(ch,"\"")) do (
+      v : endcons(ch,v),
+      ch : readchar(strm)
+    ),
+    _xml_param(readchar(strm), strm, 
+      cons([_xml_string(k), _xml_string(v)], acc))
+  )
+)$
+
+/* Parse node type 
+   return [type, last_character] */
+_xml_type(ch,strm) := block(
+  [ t: [] ],
+  while not(_xml_spacep(ch) or member(ch,["/",">"])) do (
+    t : endcons(ch,t),
+    ch : readchar(strm)
+  ),
+  [_xml_string(t), ch]
+)$
+
+/* Parse and ignore block 
+   x is the penultimate symbol */
+_xml_ignore(ch,strm,x) := block(
+  [ %1:ch ],
+  ch : readchar(strm),
+  while not (cequal(%1,x) and cequal(ch,">")) do (
+    %1 : ch, 
+    ch : readchar(strm)
+  ),
+  _xml_skip
+)$
+
+/* Parse second tag */
+_xml_tail(ch,strm) := block(
+  while not(cequal(ch,">")) do ch : readchar(strm),
+  _xml_tail_
+)$
+
+/* Parse text started from '<'
+   In the case of node
+   return list [ type, parameters, string or list of nodes ] */
+_xml_part(ch,strm) := block(
+  [ %1, res ],
+  if cequal(ch,"?") then 
+    _xml_ignore(ch, strm, "?") /* declaration */
+  elseif cequal(ch,"!") then 
+    _xml_ignore(ch, strm, "-") /* comment */
+  elseif cequal(ch,"/") then 
+    _xml_tail(ch, strm) 
+  else (
+    res : [none,[],""],
+    [res[1], ch] : _xml_type(ch, strm),
+    [res[2], ch] : _xml_param(ch, strm, []),
+    if cequal(ch,"/") then  
+      readchar(strm)  /* skip '>' */
+    else 
+      res[3] : _xml_body(readchar(strm), strm, []),
+    res
+  )
+)$
+
+/* Make the list of nodes or string */
+_xml_body(ch, strm, acc) := block(
+  [ %1 : _xml_skip, s : [] ], 
+  /* read text */
+  while is(%1=_xml_skip) do (
+    while is(ch#false) and is(ch#"<") do (
+      s : endcons(ch, s),
+      ch : readchar(strm)
+    ),
+    %1 : if charp(ch) then _xml_part(readchar(strm), strm) else _xml_tail_,
+    ch : ""
+  ),
+  /* processing and return the result */
+  if is(%1=_xml_tail_) then (
+    if emptyp(acc) then _xml_string(s) else acc
+  ) else 
+    _xml_body(readchar(strm), strm, cons(%1, acc))
+)$
+
+/* Parse XML file 
+   return list of nodes */
+xml_read(fname) := block(
+  [ %1, %2 ],
+  %1 : openr(fname), 
+  %2 : _xml_body(readchar(%1), %1, []),
+  close(%1),
+  %2 
+)$
+
+/* Get property by name */
+xml_property(node,key) := block(
+  [ %1 : none ],
+  for p in second(node) do 
+    if is(key=first(p)) then %1 : second(p),
+  %1
+)$
+
+/* Node type (tag) */
+xml_type(node) := first(node)$ 
+/* List of node properties (arguments) */
+xml_properties(node) := second(node)$
+/* Node content */
+xml_value(node) := third(node)$
+
+
+/*      URDF    */
+
+/* Find paretns and childs */
+_urdf_connect(jnt,nm) := block(
+  [ %1 : xml_value(jnt), %2 : none ],
+  if listp(%1) then (
+    for n in %1 do (
+      if is(xml_type(n)=nm) then 
+        %2 : xml_property(n,"link")
+    )
+  ),   
+  %2  
+)$
+
+/* Parse URDF and sort its components:
+   add [parent, [childs]] to each node */
+urdf_read(fname) := block(
+  [ %1, %2, %3, %4, nm, parts, N, robot ],
+  robot : first(xml_read(fname)),
+  parts : xml_value(robot),
+  N : length(parts),
+  /* prepare for sorting */
+  for i : 1 thru N do (
+    %1 : parts[i],
+    if is(xml_type(%1)="joint") then 
+      parts[i] : append(%1, [none,none])
+    else /* link */ 
+      parts[i] : append(%1, [none,[]])
+  ), 
+  /* sort */
+  for i : 1 thru N do (
+    %1 : parts[i],
+    if is(xml_type(%1)="joint") then (
+      %2 : _urdf_connect(%1,"parent"),
+      %3 : _urdf_connect(%1,"child"),
+      for j : 1 thru N do (
+        %4 : parts[j],
+        if is(xml_type(%4)="link") then (
+          nm : xml_property(%4, "name"),
+          if is(nm=%2) then (
+            /* parent */
+            %1[4] : j, %4[5] : cons(i,%4[5]) ) 
+          elseif is(nm=%3) then (
+            /* child */
+            %1[5] : j, %4[4] : i )
+        )
+      )
+    )
+  ),
+  robot
+)$
+
+
