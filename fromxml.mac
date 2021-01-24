@@ -125,12 +125,16 @@ xml_read(fname) := block(
 )$
 
 /* Get property by name */
-xml_property(node,key) := block(
-  [ %1 : none ],
-  for p in second(node) do 
-    if is(key=first(p)) then %1 : second(p),
-  %1
+_xml_property(lst,key) := block(
+  [ %1 ],
+  if emptyp(lst) then 
+    none 
+  else (
+    %1 : first(lst), 
+    if is(key=first(%1)) then second(%1) else _xml_property(rest(lst),key)
+  )
 )$
+xml_property(node,key) := _xml_property(second(node),key)$
 
 /* Node type (tag) */
 xml_type(node) := first(node)$ 
@@ -139,27 +143,24 @@ xml_properties(node) := second(node)$
 /* Node content */
 xml_value(node) := third(node)$
 /* Find node in list by type */
-xml_find(lst,tp) := block(
-  [ res : none ],
-  if listp(lst) then (
-    for v in lst do 
-      if is(xml_type(v)=tp) then res : v
-  ),
-  res
+_xml_find(lst,tp) := block(
+  [ %1 ],
+  if emptyp(lst) then 
+    none 
+  else (
+    %1 : first(lst),
+    if is(xml_type(%1)=tp) then %1 else _xml_find(rest(lst),tp)
+  )
 )$
+xml_find(lst,tp) := if listp(lst) then _xml_find(lst,tp) else none$
 
 /*      URDF    */
 
 /* Find paretns and childs */
 _urdf_connect(jnt,nm) := block(
-  [ %1 : xml_value(jnt), %2 : none ],
-  if listp(%1) then (
-    for n in %1 do (
-      if is(xml_type(n)=nm) then 
-        %2 : xml_property(n,"link")
-    )
-  ),   
-  %2  
+  [ %1 : xml_value(jnt) ],
+  %1 : xml_find(%1,nm),
+  if is(%1=none) then none else xml_property(%1,"link")
 )$
 
 /* Parse URDF and sort its components:
