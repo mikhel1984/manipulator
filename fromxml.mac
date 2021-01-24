@@ -138,7 +138,15 @@ xml_type(node) := first(node)$
 xml_properties(node) := second(node)$
 /* Node content */
 xml_value(node) := third(node)$
-
+/* Find node in list by type */
+xml_find(lst,tp) := block(
+  [ res : none ],
+  if listp(lst) then (
+    for v in lst do 
+      if is(xml_type(v)=tp) then res : v
+  ),
+  res
+)$
 
 /*      URDF    */
 

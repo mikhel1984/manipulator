@@ -248,6 +248,124 @@ _from_dh_list(lst,vars,state,v) := block(
 
 from_dh(lst,vars) := _from_dh_list(lst,vars,[_eye3_,_vec0_],none)$
 
+/* Make objects from URDF description file */ 
+
+batchload("fromxml.mac")$
+
+_lst2num(s) := map(parse_string,split(s))$
+
+_get_urdf_joint(n) := block(
+  [ %1, %2, %3, tp, nm ],
+  %1: xml_find(xml_value(n),"origin"),
+  if is(%1#none) then (
+    %2 : xml_property(%1,"rpy"),
+    if is(%2=none) then [] else %2: apply(R_RPW, _lst2num(%2)),
+    %3 : xml_property(%1,"xyz"),
+    if is(%3=none) then [] else %3: apply(Pos, _lst2num(%3))
+  ),
+  %1 : xml_find(xml_value(n),"axis"),
+  if is(%1#none) then (
+    tp : xml_property(n,"type"), 
+    nm : parse_string(xml_property(n,"name")),
+    %1 : _lst2num(xml_property(%1,"xyz")),
+    if is(tp="revolute") then (
+      if     is(%1[1]=1) then %1:rotX(nm) 
+      elseif is(%1[2]=1) then %1:rotY(nm)
+      else   %1:rotZ(nm)
+    )
+    elseif is(tp="prismatic") then (
+      if     is(%1[1]=1) then %1:tranX(nm) 
+      elseif is(%1[2]=1) then %1:tranY(nm)
+      else   %1:tranZ(nm)
+    ) else []
+  ) else 
+    %1 : [] ,
+  Joint(%1, %2, %3)
+)$
+
+_get_urdf_link(n) := block(
+  [ %1, %2, %3, I : [0,0,0,0,0,0,0,0,0,0] ],
+  %1 : xml_find(xml_value(n), "inertial"),
+  if is(%1#none) then (
+    %2 : xml_find(xml_value(%1),"mass"),
+    if is(%2#none) then (
+      %2 : parse_string(xml_property(%2,"value")),
+      I[10] : %2
+    ),
+    %2 : xml_find(xml_value(%1),"origin"),
+    if is(%2#none) then (
+      %2 : _lst2num(xml_property(%2,"xyz")),
+      I[7]: %2[1], I[8]: %2[2], I[9]: %2[3]
+    ),
+    %2 : xml_find(xml_value(%1),"inertia"),
+    if is(%2#none) then (
+      %3 : xml_property(%2,"ixx"),
+      if is(%3#none) then I[1]: parse_string(%3),
+      %3 : xml_property(%2,"ixy"),
+      if is(%3#none) then I[2]: parse_string(%3),
+      %3 : xml_property(%2,"ixz"),
+      if is(%3#none) then I[3]: parse_string(%3),
+      %3 : xml_property(%2,"iyy"),
+      if is(%3#none) then I[4]: parse_string(%3),
+      %3 : xml_property(%2,"iyz"),
+      if is(%3#none) then I[5]: parse_string(%3),
+      %3 : xml_property(%2,"izz"),
+      if is(%3#none) then I[6]: parse_string(%3)
+    )
+  ),
+  Link(I)
+)$
+
+_urdf_jointp(n) := is(xml_type(n)="joint")$
+_urdf_linkp(n) := is(xml_type(n)="link")$
+
+_from_urdf_list(lst,k,parent) := block(
+  [ %1, obj ],
+  if is(k=none) then 
+    parent
+  else (
+    %1 : lst[k],
+    if _urdf_jointp(%1) then (
+      obj : _get_urdf_joint(%1), 
+      addChild(parent, obj),
+      _from_urdf_list(lst, %1[5], obj)
+    ) else (
+      obj : _get_urdf_link(%1),
+      addChild(parent, obj),
+      if emptyp(%1[5]) then 
+        addChild(obj,Joint([],[],[]))
+      else (
+        for v in %1[5] do _from_urdf_list(lst, v, obj),
+        obj
+      )
+    )
+  )
+)$
+
+from_urdf(fname) := block(
+  [ parts, elt : none, v ],
+  parts : xml_value(urdf_read(fname)),
+  /* find joint */
+  for p in parts do (
+    if is(xml_type(p)="joint") then elt : p
+  ),
+  /* find root */
+  while is(elt[4]#none) do elt : parts[elt[4]], 
+  if _urdf_jointp(elt) then (
+    v : _get_urdf_joint(elt),
+    _from_urdf_list(parts,elt[5],v)
+  )
+  else (
+    v : addChild(Joint([],[],[]), _get_urdf_link(elt)),
+    for p in elt[5] do _from_urdf_list(parts, p, v),
+    v
+  )
+
+
+  
+
+)$
+
 
 /* Print structure */
 
