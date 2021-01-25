@@ -122,21 +122,21 @@ tranZ(q) := [_eye3_,Pos(0,0,q),3,not(_revolute_),_pos_vel_acc(q)]$
 
 _pos_vel_acc(q) := if symbolp(q) then [q,concat('d,q),concat('dd,q)] else [q,0,0]$
 
-revolutep(v) := v@fn[4]$
-movablep(v) := is(v@fn[3] # 0)$
+revolutep(v) := fourth(v@fn)$
+movablep(v) := is(third(v@fn) # 0)$
 prismaticp(v) := movablep(v) and not(revolutep(v))$
 
 /* Forward kinematics */
 
 _transform(t1,t2) := block(
-  [R: t1[1]],
-  [R . t2[1], R . t2[2] + t1[2]]
+  [R: first(t1)],
+  [R . first(t2), R . second(t2) + second(t1)]
 )$
 
 _next_joints(v) := if is(v@child = none) then [] else by_id(v@child)@child $
 
 _update_kin_state(stack,chd,frame) := block(
-  [c ],
+  [ c ],
   if emptyp(chd) then (
     if emptyp(stack) then
       "Done"
