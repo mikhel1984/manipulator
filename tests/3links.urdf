@@ -1,0 +1,90 @@
+<?xml version="1.0" ?>
+<robot name="3links" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- joints -->
+  <joint name="joint1" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0.346"/>
+    <parent link="world"/>
+    <child link="link1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="3000" lower="-3.14" upper="3.14" velocity="2.26893"/>
+    <dynamics damping="125" friction="155"/>
+  </joint>
+  <joint name="joint2" type="revolute">
+    <origin rpy="0 0 0" xyz="0.312 0 0.324"/>
+    <parent link="link1"/>
+    <child link="link2"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="1000" lower="-1.0472" upper="1.32645" velocity="2.00713"/>
+    <!--  some comments  -->
+    <dynamics damping="72" friction="50"/>
+  </joint>
+  <joint name="joint3" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 1.075"/>
+    <parent link="link2"/>
+    <child link="link3"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="1000" lower="-1.83259" upper="1.8726" velocity="2.18166"/>
+    <!--  other comment -->
+    <dynamics damping="15" friction="48"/>
+  </joint>
+  <!-- links -->
+  <link name="link1">
+    <inertial>
+      <mass value="550"/>
+      <origin xyz="0 0 0.1"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.01"/>
+    </inertial>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://meshes/J1.STL"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://meshes/J1.STL"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link2">
+    <inertial>
+      <mass value="250"/>
+      <origin xyz="0.2 0 0.2"/>
+      <inertia ixx="1.0" ixy="0.01" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 -0.346"/>
+      <geometry>
+        <mesh filename="package://meshes/J2Base.STL"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 -0.346"/>
+      <geometry>
+        <mesh filename="package://meshes/J2Base.STL"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="link3">
+    <inertial>
+      <mass value="60"/>
+      <origin xyz="0 0 0.5"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.01" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.312 0 -0.67"/>
+      <geometry>
+        <mesh filename="package://meshes/J2Arm.STL"/>
+      </geometry>
+    </collision>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.312 0 -0.67"/>
+      <geometry>
+        <mesh filename="package://meshes/J2Arm.STL"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="world"/>
+</robot>
+

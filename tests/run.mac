@@ -87,3 +87,14 @@ j1 ++ l2 ++ j3 ++ l5 ++ j6 ++ l9$
 l5 ++ j7 ++ l10$
 l2 ++ j4 ++ l8$
 print_tree(j1);
+
+/* Read URDF */
+rbt3 : from_urdf("tests/3links.urdf")$
+update_state(rbt3)$
+update_dynamics(rbt3)$
+par : [joint1=0.1,djoint1=0.5,ddjoint1=1,joint2=-0.2,djoint2=0.5,
+        ddjoint2=1,joint3=0.3,djoint3=0.5,ddjoint3=1,grav=9.81]$
+
+jj : get_joints(rbt3)$  /* movable joints */
+res : ev(matrix(map(get_torque,jj)),par)$
+tst(round(res) - matrix([82,-90,35]));
