@@ -466,10 +466,17 @@ _collect_disp(stack,acc,env) := block(
   )
 )$
 
-/* qs is list [q1=v1,q2=v2...] */
+/* qs is list [q1=v1,q2=v2...] 
+  joints omited in qs set to zero */
 draw_tree(v,qs) := block(
   [ %1, %2, %3,   
     w : find_base(v) ], 
+  /* update list */
+  %1 : map(lhs, qs),
+  %2 : map(get_q, get_joints(v)),
+  for q in %2 do 
+    if not(member(q,%1)) then qs : cons(q=0, qs),
+  /* draw */
   %1 : ev(get_rot(w), qs),
   %2 : ev(get_pos(w), qs),
   %3 : append(_disp_frame(%1, %2), [xlabel="X", ylabel="Y", zlabel="Z"]),

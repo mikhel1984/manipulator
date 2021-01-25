@@ -50,7 +50,12 @@ res : ev(jac, q1:%pi/2, q2:%pi/2, d3:1, q4:%pi/2)$
 tst(res - matrix([-1,0,0,0],[-2,-2,0,0],[0,0,-1,0],[0,0,0,0],[0,0,0,0],[1,1,0,-1]));
 
 /* Show 3D structure */
+
+/* initial position */
+draw_tree(rbt1, []);
+/* arbitrary position */
 draw_tree(rbt1, [q1=%pi/4, q2=-%pi/2, q3=%pi/2]);
+
 
 /* Find dynamics */
 jnt1 : Joint(rotZ(q1),[], Pos(0,0,0.346))$
