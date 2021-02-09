@@ -22,37 +22,65 @@ Cross(v1,v2) := matrix(
   [v1[3][1]*v2[1][1]-v1[1][1]*v2[3][1]],
   [v1[1][1]*v2[2][1]-v1[2][1]*v2[1][1]])$
 
-/* Link 
- id - index
- parent - parent joint, id
- child - list of child joints (id-s)
- inertial - list of inertial parameters:
-   Ixx Ixy Ixz Iyy Iyz Izz - elements of the inertia tensor
-   rx ry rz - center of mass
-   m - link mass
-*/
-defstruct(LinkStruct(parent=none,child=[],id,inertial=_inert0_))$
+/* Link */
+defstruct (
+  LinkStruct (
+    id,                /* object index */
+    parent=none,       /* parent joint ID */
+    child=[],          /* list of child IDs */
+    inertial=_inert0_  /* list of inertial parameters: */
+       /*  Ixx Ixy Ixz Iyy Iyz Izz - elements of the inertia tensor */
+       /*                 rx ry rz - center of mass                 */
+       /*                        m - link mass                      */
+  )
+)$
 
-/* Joint
- id - index
- parent - parent link, id
- child - child link, id
- pos - transformation w.r.t previoud joint:
-   rotation and translation
- fn - joint transformation function:
-   rotation translation axis type [angle velocity acceleration] 
- state - current state in space
-   orientation position
- tau - current torque
-*/
-defstruct(JointStruct(pos=[_eye3_,_vec0_],fn=[_eye3_,_vec0_,0,false,[0,0,0]],
-                      parent=none,child=none,id,state=[_eye3_,_vec0_],tau=0))$
+/* Joint */
+defstruct (
+  JointStruct (
+    id,                    /* object index */
+    pos=[_eye3_,_vec0_],   /* transformation w.r.t. previous joint (rot-n & trans-n) */
+    fn=[_eye3_,_vec0_,0,false,[0,0,0]], /* joint transformation function: */
+        /*rotation translation axis type [angle velocity acceleration]  */
+    parent=none,           /* parent link ID */
+    child=none,            /* child link ID */
+    state=[_eye3_,_vec0_], /* current state in space (rot-n & trans-n) */
+    tau=0                  /* current torque */
+  )
+)$
 
-find_base(v) := if is(v@parent=none) then v else find_base(_kin_tree_[v@parent])$
+/* Link contructor 
+   inertial - list of inertial parameters (or empty) */
+Link(inertial) := block(
+  [res : new(LinkStruct)],
+  if not(emptyp(inertial)) then res@inertial : inertial,
+  _kin_tree_ : endcons(res,_kin_tree_),
+  res@id : length(_kin_tree_),
+  res
+)$
 
+/* Joint contructor 
+   fn - joint transformation method or empty list
+   rot - rotation matrix wrt previous joint 
+   pos - translation vector wrt previous joint */
+Joint(fn,rot,pos) := block(
+  [res : new(JointStruct)],
+  if not(emptyp(fn)) then (res@fn : fn),
+  if matrixp(rot) then (res@pos[1] : rot), 
+  if matrixp(pos) then (res@pos[2] : pos),
+  _kin_tree_ : endcons(res,_kin_tree_),
+  res@id : length(_kin_tree_),
+  res
+)$
+
+/* Check type */
 linkp(v) := listp(v@child)$
 jointp(v) := not(linkp(v))$
 
+/* Find first element in the tree */
+find_base(v) := if is(v@parent=none) then v else find_base(_kin_tree_[v@parent])$
+
+/* Connect two elements */
 addChild(v1,v2) := block(
   if jointp(v1) then (
     if jointp(v2) then 
@@ -79,33 +107,22 @@ addChild(v1,v2) := block(
 infix("++")$
 "++"(v1,v2) := addChild(v1,v2)$
 
-Link(inertial) := block(
-  [res : new(LinkStruct)],
-  if not(emptyp(inertial)) then res@inertial : inertial,
-  _kin_tree_ : endcons(res,_kin_tree_),
-  res@id : length(_kin_tree_),
-  res
-)$
-
-Joint(fn,rot,pos) := block(
-  [res : new(JointStruct)],
-  if not(emptyp(fn)) then (res@fn : fn),
-  if matrixp(rot) then (res@pos[1] : rot), 
-  if matrixp(pos) then (res@pos[2] : pos),
-  _kin_tree_ : endcons(res,_kin_tree_),
-  res@id : length(_kin_tree_),
-  res
-)$
-
+/* Find element by ID number */
 by_id(n) := _kin_tree_[n]$
 
+/* Get position of joint / robot */
 get_pos(v) := v@state[2]$ 
+/* Get rotation of joint / robot */
 get_rot(v) := v@state[1]$
+/* Get joint transformation axis */
 get_axis(v) := col(v@state[1],v@fn[3])$
-/* get variable names */
+/* Get position variable name */
 get_q(v)   := v@fn[5][1]$
+/* Get velocity variable name */
 get_dq(v)  := v@fn[5][2]$
+/* Get acceleration variable name */
 get_ddq(v) := v@fn[5][3]$
+/* Get joint torque */
 get_torque(v) := v@tau$
 
 /* Equal homogenous transformation */
@@ -122,19 +139,25 @@ tranZ(q) := [_eye3_,Pos(0,0,q),3,not(_revolute_),_pos_vel_acc(q)]$
 
 _pos_vel_acc(q) := if symbolp(q) then [q,concat('d,q),concat('dd,q)] else [q,0,0]$
 
+/* Check if joint is revolute */
 revolutep(v) := fourth(v@fn)$
+/* Check if joint is movable */
 movablep(v) := is(third(v@fn) # 0)$
+/* Check if joint is prismatic */
 prismaticp(v) := movablep(v) and not(revolutep(v))$
 
 /* Forward kinematics */
 
+/* find sequential transformation */
 _transform(t1,t2) := block(
   [R: first(t1)],
   [R . first(t2), R . second(t2) + second(t1)]
 )$
 
+/* get list of next children if possible */
 _next_joints(v) := if is(v@child = none) then [] else by_id(v@child)@child $
 
+/* solve forward kinematics for tree structure */
 _update_kin_state(stack,chd,frame) := block(
   [ c ],
   if emptyp(chd) then (
@@ -151,6 +174,7 @@ _update_kin_state(stack,chd,frame) := block(
   )
 )$
 
+/* Find equations for all joints */
 update_state(v) := block(
   [c : find_base(v)], 
   if linkp(c) then error("Root must be a joint!"),
@@ -159,8 +183,10 @@ update_state(v) := block(
 
 /* Jacobian */
 
+/* concatenate columns of Jacobian */
 _jac_add(v,w,J) := if is(J=none) then addrow(v,w) else addcol(addrow(v,w),J)$
 
+/* find column by column */
 _jac_column(n,ee,J) := block(
   [v],
   if is(n=none) then 
@@ -179,6 +205,7 @@ _jac_column(n,ee,J) := block(
   )
 )$
 
+/* Find Jacobian matrix */
 Jacobian(jnt) := _jac_column(jnt@parent,get_pos(jnt),none)$
 
 /* Make object form a list of transformations */
@@ -656,16 +683,16 @@ _by_jnt_name(nm,lst) := block(
     none 
   else (
     %1 : by_id(first(lst)),
-    if jointp(%1) then (
+    if linkp(%1) then
+      _by_jnt_name(nm, append(rest(lst), %1@child))
+    else (
       if is(get_q(%1)=nm) then 
         %1
       elseif is(%1@child#none) then 
         _by_jnt_name(nm, cons(%1@child, rest(lst))) 
       else 
         _by_jnt_name(nm, rest(lst))
-    ) else 
-      _by_jnt_name(nm, append(rest(lst), 
-           if is(%1@child=none) then [] else %1@child))
+    )
   )
 )$
 
