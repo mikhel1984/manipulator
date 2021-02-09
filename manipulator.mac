@@ -577,6 +577,7 @@ _get_joints(v,ids,acc) := block(
   )
 )$
 
+/* list of movable joints */
 get_joints(rbt) := _get_joints(find_base(rbt)@id, [], [])$
 
 _dyn_M(taus,ddqs) := block(
@@ -646,3 +647,26 @@ M_C_G_J(rbt) := block(
   /* M . transpose(ddqs) + C . transpose(dqs) + G */
   [M, C, G, jnts]
 )$
+
+/* Find joint by name */ 
+
+_by_jnt_name(nm,lst) := block(
+  [ %1, %2 ],
+  if emptyp(lst) then 
+    none 
+  else (
+    %1 : by_id(first(lst)),
+    if jointp(%1) then (
+      if is(get_q(%1)=nm) then 
+        %1
+      elseif is(%1@child#none) then 
+        _by_jnt_name(nm, cons(%1@child, rest(lst))) 
+      else 
+        _by_jnt_name(nm, rest(lst))
+    ) else 
+      _by_jnt_name(nm, append(rest(lst), 
+           if is(%1@child=none) then [] else %1@child))
+  )
+)$
+
+by_name(rbt,nm) := _by_jnt_name(nm, [find_base(rbt)@id])$

@@ -24,6 +24,11 @@ tst(rot - matrix([0,-1/sqrt(2),1/sqrt(2)],[0,1/sqrt(2),1/sqrt(2)],[-1,0,0]));
 pos : ev(get_pos(rbt1), q1:%pi/4, q2:%pi/4, q3:%pi/4)$
 tst(pos - matrix([1],[1],[-sqrt(2)-2]));
 
+/* Find joint by name */
+jnt3 : by_name(rbt1, q3)$
+pos : ev(get_pos(jnt3), q1:%pi/4, q2:%pi/4, q3:%pi/4)$
+tst(pos - matrix([1],[1],[1-sqrt(2)]));
+
 /* Find Jacobian */
 jac: Jacobian(rbt1)$
 res : ev(jac, q1:%pi/2, q2:%pi/2, q3:%pi/2)$
