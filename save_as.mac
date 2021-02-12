@@ -8,44 +8,66 @@ available for other programs.
 
 load(stringproc)$
 
-/* Matrix as a Matlab function */
-matrix_4_matlab(fname,vars,mat) := block(
-   [ f, M, R, C, r, c ],
-   f : opena(sconcat(fname,".m")),
-   /* title */
-   printf(f, "function M = ~a(~a~{,~a~}) ~%",
-          fname, first(vars), rest(vars)),
-   M : float(mat),
-   R : length(mat), C : length(mat[1]), 
-   /* initialize */
-   printf(f, "    M = zeros(~d,~d); ~%", R, C),
-   /* matrix */
-   for r : 1 thru R do
-      for c : 1 thru C do
-         printf(f, "    M(~d,~d) = ~a; ~%", r, c, string(M[r][c])),
-   printf(f, "end~%"),
-   close(f)
+/* Use pow() in C */
+matchdeclare(_var1_, all, _var2_, all)$
+defrule(usepow, _var1_ ^ _var2_, pow(_var1_, _var2_))$
+
+/* Export variable for C code */
+save_as_c(name,expr) := block(
+  [ f, R, C, r, c ],
+  f : openw(sconcat(name,"_var.c")),
+  /* reminder */
+  printf(f, "/* Variables ~{~a ~}*/~%", listofvars(expr)), 
+  /* prepare */
+  expr : apply1(float(expr), usepow),
+  if matrixp(expr) then (
+    /* matrix */
+    R : length(expr), C : length(expr[1]),
+    printf(f, "double ~a[~d][~d];~%", name, R, C),
+    for r : 1 thru R do (
+      for c : 1 thru C do 
+        printf(f, "~a[~d][~d] = ~a;~%", name, r-1, c-1, string(expr[r][c]))
+    )
+  ) elseif listp(expr) then (
+    /* list */
+    R : length(expr),
+    printf(f, "double ~a[~d];~%", name, R),
+    for r : 1 thru R do 
+      printf(f, "~a[~d] = ~a;~%", name, r-1, string(expr[r]))
+  ) else (
+    /* simple expression */
+    printf(f, "double ~a = ~a;~%", name, string(expr))
+  ), 
+  close(f)
 )$
 
-/* Prepare C code */
-matrix_4_C(fname,vars,mat) := block(
-   [ f, M, R, C, r, c ],
-   f : opena(sconcat(fname, ".c")),
-   /* reminder */
-   printf(f, "/* Variables: ~{~a ~}*/~%", vars),
-   /* numbers as float point */
-   R : length(mat), C : length(mat[1]), 
-   M : float(mat),
-   /* initialize */
-   printf(f, "double M[~d][~d]; ~%", R, C),
-   /* transform '^' to 'pow()' */
-   matchdeclare(var1, all, var2, all),
-   defrule(usepow, var1 ^ var2, pow(var1, var2)),
-   M : apply1(M, usepow),
-   clear_rules(),
-   /* save matrix elements */
-   for r : 1 thru R do
-      for c : 1 thru C do
-         printf(f, "    M[~d][~d] = ~a; ~%", r-1, c-1, string(M[r][c])),
-   close(f)
+/* Export variable for matlab code */
+save_as_matlab(name,expr) := block (
+  [ f, R, C, r, c ],
+  f : openw(sconcat("get_",name,".m")),
+  /* title */ 
+  R : listofvars(expr), /* variables, reuse */
+  printf(f, "functoin ~a = get_~a(~a~{,~a~})~%", 
+          name, name, first(R), rest(R)), 
+  /* prepare */
+  expr : float(expr),
+  if matrixp(expr) then (
+    R : length(expr), C : length(expr[1]),
+    printf(f, "  ~a = zeros(~d,~d);~%", name, R, C),
+    for r : 1 thru R do (
+      for c : 1 thru C do 
+        printf(f, "  ~a(~d,~d) = ~a;~%", name, r, c, expr[r][c])
+    )
+  ) elseif listp(expr) then (
+    R : length(expr),
+    printf(f, "  ~a = zeros(1,~d);~%", name, R),
+    for r : 1 thru R do 
+      printf(f, "  ~a(~d) = ~a;~%", name, r, string(expr[r]))
+  ) else (
+    /* simple expression */
+    printf(f, "  ~a = ~a;~%", name, string(expr))
+  ), 
+  printf(f, "end ~%"), 
+  close(f)
 )$
+
