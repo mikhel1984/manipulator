@@ -23,7 +23,7 @@ load(stringproc)$
 _xml_spacep(c) := member(c, [" ", "~%", "~&", "~t"])$
 
 /* concatenate list to get string */
-_xml_string(p) := apply(sconcat,p)$
+_xml_string(p) := apply(sconcat, p)$
 
 /* find next nonspace element */
 _xml_next(ch,strm) := if _xml_spacep(ch) then 
@@ -37,19 +37,19 @@ _xml_next(ch,strm) := if _xml_spacep(ch) then
  */
 _xml_param(ch,strm,acc) := block(
   [ k, v ],
-  ch : _xml_next(ch,strm),
-  if cequal(ch,"/") or cequal(ch,">") then 
+  ch : _xml_next(ch, strm),
+  if cequal(ch, "/") or cequal(ch, ">") then 
     [acc, ch]           /* end of element */
   else (
     k : [], v : [],
-    while not(cequal(ch,"=")) do (
-      k : endcons(ch,k), 
+    while not(cequal(ch, "=")) do (
+      k : endcons(ch, k), 
       ch : readchar(strm)
     ),
     readchar(strm),     /* skip '="' */
     ch : readchar(strm),
-    while not(cequal(ch,"\"")) do (
-      v : endcons(ch,v),
+    while not(cequal(ch, "\"")) do (
+      v : endcons(ch, v),
       ch : readchar(strm)
     ),
     _xml_param(readchar(strm), strm, 
@@ -64,8 +64,8 @@ _xml_param(ch,strm,acc) := block(
  */
 _xml_type(ch,strm) := block(
   [ t: [] ],
-  while not(_xml_spacep(ch) or member(ch,["/",">"])) do (
-    t : endcons(ch,t),
+  while not(_xml_spacep(ch) or member(ch, ["/",">"])) do (
+    t : endcons(ch, t),
     ch : readchar(strm)
   ),
   [_xml_string(t), ch]
@@ -79,7 +79,7 @@ _xml_type(ch,strm) := block(
 _xml_ignore(ch,strm,x) := block(
   [ %1:ch ],
   ch : readchar(strm),
-  while not (cequal(%1,x) and cequal(ch,">")) do (
+  while not (cequal(%1, x) and cequal(ch, ">")) do (
     %1 : ch, 
     ch : readchar(strm)
   ),
@@ -88,7 +88,7 @@ _xml_ignore(ch,strm,x) := block(
 
 /* parse second tag */
 _xml_tail(ch,strm) := block(
-  while not(cequal(ch,">")) do ch : readchar(strm),
+  while not(cequal(ch, ">")) do ch : readchar(strm),
   _xml_tail_  /* marker */
 )$
 
@@ -102,9 +102,9 @@ _xml_part(ch,strm) := block(
   [ %1, res ],
   if cequal(ch,"?") then 
     _xml_ignore(ch, strm, "?") /* declaration */
-  elseif cequal(ch,"!") then 
+  elseif cequal(ch, "!") then 
     _xml_ignore(ch, strm, "-") /* comment */
-  elseif cequal(ch,"/") then 
+  elseif cequal(ch, "/") then 
     _xml_tail(ch, strm) 
   else (
     res : [none,[],""],
@@ -161,7 +161,7 @@ _xml_property(lst,key) := block(
     none 
   else (
     %1 : first(lst), 
-    if sequal(key,first(%1)) then second(%1) else _xml_property(rest(lst),key)
+    if sequal(key, first(%1)) then second(%1) else _xml_property(rest(lst), key)
   )
 )$
 
@@ -170,7 +170,7 @@ _xml_property(lst,key) := block(
  *   key - key name 
  *   return value string or none 
  */
-xml_property(node,key) := _xml_property(second(node),key)$
+xml_property(node,key) := _xml_property(second(node), key)$
 
 /* Get node type (tag) 
  *   node - node object
@@ -197,7 +197,7 @@ _xml_find(lst,tp) := block(
     none 
   else (
     %1 : first(lst),
-    if sequal(xml_type(%1),tp) then %1 else _xml_find(rest(lst),tp)
+    if sequal(xml_type(%1), tp) then %1 else _xml_find(rest(lst), tp)
   )
 )$
 
@@ -206,7 +206,7 @@ _xml_find(lst,tp) := block(
  *   tp - type string 
  *   return found node or none 
  */
-xml_find(lst,tp) := if listp(lst) then _xml_find(lst,tp) else none$
+xml_find(lst,tp) := if listp(lst) then _xml_find(lst, tp) else none$
 
 /*------------------------------      
              URDF    
@@ -215,8 +215,8 @@ xml_find(lst,tp) := if listp(lst) then _xml_find(lst,tp) else none$
 /* find paretn and child */
 _urdf_connect(jnt,nm) := block(
   [ %1 : xml_value(jnt) ],
-  %1 : xml_find(%1,nm),
-  if is(%1=none) then none else xml_property(%1,"link")
+  %1 : xml_find(%1, nm),
+  if is(%1=none) then none else xml_property(%1, "link")
 )$
 
 /* Parse URDF and sort its components:
@@ -227,12 +227,12 @@ _urdf_connect(jnt,nm) := block(
 urdf_read(fname) := block(
   [ %1, %2, %3, %4, nm, parts, N, robot ],
   robot : first(xml_read(fname)),
-  parts : xml_value(robot),
+  parts : xml_value(robot),  /* robot tag */
   N : length(parts),
   /* prepare for sorting */
   for i : 1 thru N do (
     %1 : parts[i],
-    if sequal(xml_type(%1),"joint") then 
+    if sequal(xml_type(%1), "joint") then 
       parts[i] : append(%1, [none,none])
     else /* link */ 
       parts[i] : append(%1, [none,[]])
@@ -240,16 +240,16 @@ urdf_read(fname) := block(
   /* sort */
   for i : 1 thru N do (
     %1 : parts[i],
-    if sequal(xml_type(%1),"joint") then (
-      %2 : _urdf_connect(%1,"parent"),
-      %3 : _urdf_connect(%1,"child"),
+    if sequal(xml_type(%1), "joint") then (
+      %2 : _urdf_connect(%1, "parent"),
+      %3 : _urdf_connect(%1, "child"),
       for j : 1 thru N do (
         %4 : parts[j],
-        if sequal(xml_type(%4),"link") then (
+        if sequal(xml_type(%4), "link") then (
           nm : xml_property(%4, "name"),
           if is(nm=%2) then (
             /* parent */
-            %1[4] : j, %4[5] : cons(i,%4[5]) ) 
+            %1[4] : j, %4[5] : cons(i, %4[5]) ) 
           elseif is(nm=%3) then (
             /* child */
             %1[5] : j, %4[4] : i )
