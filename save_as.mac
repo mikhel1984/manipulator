@@ -12,10 +12,16 @@ load(stringproc)$
 matchdeclare(_var1_, all, _var2_, all)$
 defrule(usepow, _var1_ ^ _var2_, pow(_var1_, _var2_))$
 
-/* Export variable for C code */
+/* simplify the obtained string */
+_simpstr(expr) := ssubst("-", "-1.0*", string(expr))$
+
+/* Export variable for C code, save result to file. 
+ *   name - string with name 
+ *   expr - matrix, list or expression
+ */
 save_as_c(name,expr) := block(
   [ f, R, C, r, c ],
-  f : openw(sconcat(name,"_var.c")),
+  f : openw(sconcat("get_",name,".c")),
   /* reminder */
   printf(f, "/* Variables ~{~a ~}*/~%", listofvars(expr)), 
   /* prepare */
@@ -26,22 +32,25 @@ save_as_c(name,expr) := block(
     printf(f, "double ~a[~d][~d];~%", name, R, C),
     for r : 1 thru R do (
       for c : 1 thru C do 
-        printf(f, "~a[~d][~d] = ~a;~%", name, r-1, c-1, string(expr[r][c]))
+        printf(f, "~a[~d][~d] = ~a;~%", name, r-1, c-1, _simpstr(expr[r][c]))
     )
   ) elseif listp(expr) then (
     /* list */
     R : length(expr),
     printf(f, "double ~a[~d];~%", name, R),
     for r : 1 thru R do 
-      printf(f, "~a[~d] = ~a;~%", name, r-1, string(expr[r]))
+      printf(f, "~a[~d] = ~a;~%", name, r-1, _simpstr(expr[r]))
   ) else (
     /* simple expression */
-    printf(f, "double ~a = ~a;~%", name, string(expr))
+    printf(f, "double ~a = ~a;~%", name, _simpstr(expr))
   ), 
   close(f)
 )$
 
-/* Export variable for matlab code */
+/* Export variable for matlab code, save result to file.
+ *   name - string with name 
+ *   expr - matrix, list or expression 
+ */
 save_as_matlab(name,expr) := block (
   [ f, R, C, r, c ],
   f : openw(sconcat("get_",name,".m")),
@@ -56,16 +65,16 @@ save_as_matlab(name,expr) := block (
     printf(f, "  ~a = zeros(~d,~d);~%", name, R, C),
     for r : 1 thru R do (
       for c : 1 thru C do 
-        printf(f, "  ~a(~d,~d) = ~a;~%", name, r, c, expr[r][c])
+        printf(f, "  ~a(~d,~d) = ~a;~%", name, r, c, _simpstr(expr[r][c]))
     )
   ) elseif listp(expr) then (
     R : length(expr),
     printf(f, "  ~a = zeros(1,~d);~%", name, R),
     for r : 1 thru R do 
-      printf(f, "  ~a(~d) = ~a;~%", name, r, string(expr[r]))
+      printf(f, "  ~a(~d) = ~a;~%", name, r, _simpstr(expr[r]))
   ) else (
     /* simple expression */
-    printf(f, "  ~a = ~a;~%", name, string(expr))
+    printf(f, "  ~a = ~a;~%", name, _simpstr(expr))
   ), 
   printf(f, "end ~%"), 
   close(f)

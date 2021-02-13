@@ -108,3 +108,10 @@ par : [joint1=0.1,djoint1=0.5,ddjoint1=1,joint2=-0.2,djoint2=0.5,
 jj : get_joints(rbt3)$  /* movable joints */
 res : ev(matrix(map(get_torque,jj)),par)$
 tst(round(res) - matrix([82,-90,35]));
+
+/* Save results */
+batchload("save_as.mac")$
+/* matrix to C, output is 'M_var.c' */
+save_as_c("M", M);
+/* make Matlab function for expression, output is 'get_Tau.m' */
+save_as_matlab("Tau", get_torque(jnt1));
