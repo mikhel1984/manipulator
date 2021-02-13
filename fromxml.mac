@@ -5,27 +5,41 @@ Simple xml parser. Assumptions:
 - 'key="value"' without spaces
 - comments are between '<!' and '->'
 - no comments in types and parameters 
+- no nested comments
+
+Parse into list of nodes where each node has form 
+[ type, parameters, list of nodes or value ]
 
   2021, Stanislav Mikhel
 --------------------------------*/
 
 load(stringproc)$
 
+/*-------------------------------
+             XML
+--------------------------------*/
+
+/* check space types */
 _xml_spacep(c) := member(c, [" ", "~%", "~&", "~t"])$
 
+/* concatenate list to get string */
 _xml_string(p) := apply(sconcat,p)$
 
-/* Find next nonspace element */
+/* find next nonspace element */
 _xml_next(ch,strm) := if _xml_spacep(ch) then 
                         _xml_next(readchar(strm), strm) else ch$
 
-/* Parse 'key="value"' structure, 
-   return [ [[k1,v1], [k2,v2], ...], last_character] */
+/* Parse 'key="value"' structure 
+ *   ch - current character
+ *   strm - stream
+ *   acc - list of found elements
+ *   return [ [[k1,v1], [k2,v2], ...], last_character ] 
+ */
 _xml_param(ch,strm,acc) := block(
   [ k, v ],
   ch : _xml_next(ch,strm),
   if cequal(ch,"/") or cequal(ch,">") then 
-    [acc, ch]
+    [acc, ch]           /* end of element */
   else (
     k : [], v : [],
     while not(cequal(ch,"=")) do (
@@ -44,7 +58,10 @@ _xml_param(ch,strm,acc) := block(
 )$
 
 /* Parse node type 
-   return [type, last_character] */
+ *   ch - current character
+ *   strm - stream
+ *   return [type, last_character] 
+ */
 _xml_type(ch,strm) := block(
   [ t: [] ],
   while not(_xml_spacep(ch) or member(ch,["/",">"])) do (
@@ -55,7 +72,10 @@ _xml_type(ch,strm) := block(
 )$
 
 /* Parse and ignore block 
-   x is the penultimate symbol */
+ *   ch - current character
+ *   strm - stream
+ *   x - the penultimate symbol 
+ */
 _xml_ignore(ch,strm,x) := block(
   [ %1:ch ],
   ch : readchar(strm),
@@ -63,18 +83,21 @@ _xml_ignore(ch,strm,x) := block(
     %1 : ch, 
     ch : readchar(strm)
   ),
-  _xml_skip
+  _xml_skip  /* marker */
 )$
 
-/* Parse second tag */
+/* parse second tag */
 _xml_tail(ch,strm) := block(
   while not(cequal(ch,">")) do ch : readchar(strm),
-  _xml_tail_
+  _xml_tail_  /* marker */
 )$
 
 /* Parse text started from '<'
-   In the case of node
-   return list [ type, parameters, string or list of nodes ] */
+ *   ch - current character
+ *   strm - stream
+ *   In the case of node
+ *   return list [ type, parameters, string or list of nodes ] 
+ */
 _xml_part(ch,strm) := block(
   [ %1, res ],
   if cequal(ch,"?") then 
@@ -95,7 +118,12 @@ _xml_part(ch,strm) := block(
   )
 )$
 
-/* Make the list of nodes or string */
+/* Make the list of nodes or string 
+ *   ch - current character
+ *   strm - stream
+ *   acc - list of found elements
+ *   return string of node list
+ */
 _xml_body(ch, strm, acc) := block(
   [ %1 : _xml_skip, s : [] ], 
   /* read text */
@@ -115,7 +143,9 @@ _xml_body(ch, strm, acc) := block(
 )$
 
 /* Parse XML file 
-   return list of nodes */
+ *   fname - name of xml file
+ *   return list of nodes 
+ */
 xml_read(fname) := block(
   [ %1, %2 ],
   %1 : openr(fname), 
@@ -124,39 +154,65 @@ xml_read(fname) := block(
   %2 
 )$
 
-/* Get property by name */
+/* get property by name */
 _xml_property(lst,key) := block(
   [ %1 ],
   if emptyp(lst) then 
     none 
   else (
     %1 : first(lst), 
-    if is(key=first(%1)) then second(%1) else _xml_property(rest(lst),key)
+    if sequal(key,first(%1)) then second(%1) else _xml_property(rest(lst),key)
   )
 )$
+
+/* Find property value for the given key 
+ *   node - node object
+ *   key - key name 
+ *   return value string or none 
+ */
 xml_property(node,key) := _xml_property(second(node),key)$
 
-/* Node type (tag) */
+/* Get node type (tag) 
+ *   node - node object
+ *   return type string
+ */
 xml_type(node) := first(node)$ 
-/* List of node properties (arguments) */
+
+/* Get list of node properties (arguments) 
+ *   node - node object
+ *   return list of arguments
+ */
 xml_properties(node) := second(node)$
-/* Node content */
+
+/* Get node content 
+ *   node - node object
+ *   return string of list of nodes 
+ */
 xml_value(node) := third(node)$
-/* Find node in list by type */
+
+/* find node in list by type */
 _xml_find(lst,tp) := block(
   [ %1 ],
   if emptyp(lst) then 
     none 
   else (
     %1 : first(lst),
-    if is(xml_type(%1)=tp) then %1 else _xml_find(rest(lst),tp)
+    if sequal(xml_type(%1),tp) then %1 else _xml_find(rest(lst),tp)
   )
 )$
+
+/* Find node using type 
+ *   lst - list of nodes 
+ *   tp - type string 
+ *   return found node or none 
+ */
 xml_find(lst,tp) := if listp(lst) then _xml_find(lst,tp) else none$
 
-/*      URDF    */
+/*------------------------------      
+             URDF    
+-------------------------------*/
 
-/* Find paretns and childs */
+/* find paretn and child */
 _urdf_connect(jnt,nm) := block(
   [ %1 : xml_value(jnt) ],
   %1 : xml_find(%1,nm),
@@ -164,7 +220,10 @@ _urdf_connect(jnt,nm) := block(
 )$
 
 /* Parse URDF and sort its components:
-   add [parent, [childs]] to each node */
+ * add [parent, [child]] to each node 
+ *   fname - urdf file name 
+ *   return sorted nodes
+ */
 urdf_read(fname) := block(
   [ %1, %2, %3, %4, nm, parts, N, robot ],
   robot : first(xml_read(fname)),
@@ -173,7 +232,7 @@ urdf_read(fname) := block(
   /* prepare for sorting */
   for i : 1 thru N do (
     %1 : parts[i],
-    if is(xml_type(%1)="joint") then 
+    if sequal(xml_type(%1),"joint") then 
       parts[i] : append(%1, [none,none])
     else /* link */ 
       parts[i] : append(%1, [none,[]])
@@ -181,12 +240,12 @@ urdf_read(fname) := block(
   /* sort */
   for i : 1 thru N do (
     %1 : parts[i],
-    if is(xml_type(%1)="joint") then (
+    if sequal(xml_type(%1),"joint") then (
       %2 : _urdf_connect(%1,"parent"),
       %3 : _urdf_connect(%1,"child"),
       for j : 1 thru N do (
         %4 : parts[j],
-        if is(xml_type(%4)="link") then (
+        if sequal(xml_type(%4),"link") then (
           nm : xml_property(%4, "name"),
           if is(nm=%2) then (
             /* parent */
