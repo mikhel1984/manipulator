@@ -1,0 +1,77 @@
+/*-------- inertia.mac -------------
+
+Inertial parameters of simple bodies.
+
+  2021, Stanislav Mikhel
+-----------------------------------*/
+
+inertia_disp(I0, vec, m) := block(
+  [ tvec : transpose(vec) ],
+  I0 + m * ((tvec . vec) * ident(3) - (vec . tvec))
+)$
+
+inertia_rot(I0, R) := (R . I0 . transpose(R))$
+
+inertia_to_list(I,v,m) := 
+  [I[1][1], I[1][2], I[1][3], I[2][2], I[2][3], I[3][3], 
+   v[1][1], v[2][1], v[3][1], m]$
+
+/*      Cylinder        */
+
+_inertia_cylinder(L,ro,ri,rho) := block(
+  [ m, tmp, rr : ro^2 + ri^2 ],
+  m : rho * %pi * (ro^2 - ri^2) * L, /* mass */
+  tmp : (3 * rr + L^2) * m / 12,
+  [rr*m/2, tmp, tmp, m]
+)$
+
+inertia_cylinder_x(L,ro,ri,rho) := block(
+  [ lst, v : transpose([L/2,0,0]), I ],
+  lst : _inertia_cylinder(L, ro, ri, rho), 
+  I : inertia_disp(matrix([lst[1],0,0],[0,lst[2],0],[0,0,lst[3]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
+
+inertia_cylinder_y(L,ro,ri,rho) := block(
+  [ lst, v : transpose([0,L/2,0]), I ],
+  lst : _inertia_cylinder(L, ro, ri, rho), 
+  I : inertia_disp(matrix([lst[2],0,0],[0,lst[1],0],[0,0,lst[3]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
+
+inertia_cylinder_z(L,ro,ri,rho) := block(
+  [ lst, v : transpose([0,0,L/2]), I ],
+  lst : _inertia_cylinder(L, ro, ri, rho), 
+  I : inertia_disp(matrix([lst[2],0,0],[0,lst[3],0],[0,0,lst[1]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
+
+/*      Beam (cuboid)   */
+
+_inertia_beam(L, wo, wi, rho) := block(
+  [ m, tmp, ww : wo^2 + wi^2],
+  m : rho * (wo^2 - wi^2) * L,
+  tmp : (L^2 + ww) * m / 12, 
+  [ww * m / 6, tmp, tmp, m]
+)$
+
+inertia_beam_x(L, wo, wi, rho) := block(
+  [ lst, v : transpose([L/2, 0, 0]), I ],
+  lst : _inertia_beam(L, wo, wi, rho),
+  I : inertia_disp(matrix([lst[1],0,0],[0,lst[2],0],[0,0,lst[3]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
+
+inertia_beam_y(L, wo, wi, rho) := block(
+  [ lst, v : transpose([0, L/2, 0]), I ],
+  lst : _inertia_beam(L, wo, wi, rho),
+  I : inertia_disp(matrix([lst[2],0,0],[0,lst[1],0],[0,0,lst[3]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
+
+inertia_beam_z(L, wo, wi, rho) := block(
+  [ lst, v : transpose([0, 0, L/2]), I ],
+  lst : _inertia_beam(L, wo, wi, rho),
+  I : inertia_disp(matrix([lst[2],0,0],[0,lst[3],0],[0,0,lst[1]]), v, lst[4]), 
+  inertia_to_list(I, v, lst[4])
+)$
