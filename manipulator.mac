@@ -81,11 +81,11 @@ jointp(v) := not(linkp(v))$
 find_base(v) := if is(v@parent=none) then v else find_base(_kin_tree_[v@parent])$
 
 /* Connect two elements */
-addChild(v1,v2) := block(
+add_child(v1,v2) := block(
   if jointp(v1) then (
     if jointp(v2) then 
       /* add intermediate link */
-      addChild(addChild(v1, Link([])), v2)
+      add_child(add_child(v1, Link([])), v2)
     else (
       v1@child : v2@id,
       v2@parent : v1@id,
@@ -94,7 +94,7 @@ addChild(v1,v2) := block(
   ) else (
     if linkp(v2) then 
       /* add intermediate joint */
-      addChild(addChild(v1, Joint([],[],[])), v2)
+      add_child(add_child(v1, Joint([],[],[])), v2)
     else (
       v1@child : cons(v2@id,v1@child),
       v2@parent : v1@id,
@@ -105,7 +105,7 @@ addChild(v1,v2) := block(
 
 /* List/joint sequence */
 infix("++")$
-"++"(v1,v2) := addChild(v1,v2)$
+"++"(v1,v2) := add_child(v1,v2)$
 
 /* Find element by ID number */
 by_id(n) := _kin_tree_[n]$
@@ -130,12 +130,12 @@ Homo(tran) := addrow(addcol(tran[1],tran[2]),matrix([0,0,0,1]))$
 
 /* Joint functions */
 /* rotation - translation - axis - type - [angle, velocity, acceleration] */
-rotX(q) := [Rx(q),_vec0_,1,_revolute_,_pos_vel_acc(q)]$
-rotY(q) := [Ry(q),_vec0_,2,_revolute_,_pos_vel_acc(q)]$
-rotZ(q) := [Rz(q),_vec0_,3,_revolute_,_pos_vel_acc(q)]$
-tranX(q) := [_eye3_,Pos(q,0,0),1,not(_revolute_),_pos_vel_acc(q)]$
-tranY(q) := [_eye3_,Pos(0,q,0),2,not(_revolute_),_pos_vel_acc(q)]$
-tranZ(q) := [_eye3_,Pos(0,0,q),3,not(_revolute_),_pos_vel_acc(q)]$
+rotx(q) := [Rx(q),_vec0_,1,_revolute_,_pos_vel_acc(q)]$
+roty(q) := [Ry(q),_vec0_,2,_revolute_,_pos_vel_acc(q)]$
+rotz(q) := [Rz(q),_vec0_,3,_revolute_,_pos_vel_acc(q)]$
+tranx(q) := [_eye3_,Pos(q,0,0),1,not(_revolute_),_pos_vel_acc(q)]$
+trany(q) := [_eye3_,Pos(0,q,0),2,not(_revolute_),_pos_vel_acc(q)]$
+tranz(q) := [_eye3_,Pos(0,0,q),3,not(_revolute_),_pos_vel_acc(q)]$
 
 _pos_vel_acc(q) := if symbolp(q) then [q,concat('d,q),concat('dd,q)] else [q,0,0]$
 
@@ -230,18 +230,18 @@ $
 _from_trans_list(lst,vars,state,fLast,v) := block(
   [m,j],
   if emptyp(lst) then (
-    if fLast then addChild(v, Joint([],state[1],state[2])) else v
+    if fLast then add_child(v, Joint([],state[1],state[2])) else v
   ) else (
     m : first(lst),
     if is(_get_var(m[1],vars,1)=0) and is(_get_var(m[2],vars,1)=0) then 
       _from_trans_list(rest(lst),vars,_transform(state,m),true,v) 
     else (
       if is(v # none) then 
-        _from_trans_list(rest(lst),vars,[_eye3_,_vec0_],false,addChild(v,Joint(m,state[1],state[2]))) 
+        _from_trans_list(rest(lst),vars,[_eye3_,_vec0_],false,add_child(v,Joint(m,state[1],state[2]))) 
       else (
         j : Joint(m,state[1],state[2]),
         _from_trans_list(rest(lst),vars,[_eye3_,_vec0_],false,
-          if fLast then addChild(Joint([],[],[]),j) else j)
+          if fLast then add_child(Joint([],[],[]),j) else j)
       )
     )
   )
@@ -255,21 +255,21 @@ from_list(lst,vars) := _from_trans_list(lst,vars,[_eye3_,_vec0_],false,none)$
 _from_dh_list(lst,vars,state,v) := block(
   [m,s,j],
   if emptyp(lst) then 
-    addChild(v, Joint([],state[1],state[2])) 
+    add_child(v, Joint([],state[1],state[2])) 
   else (
     m : first(lst),
-    s : _transform(tranX(m[1]),rotX(m[2])),
+    s : _transform(tranx(m[1]),rotx(m[2])),
     if member(m[3],vars) then ( 
       /* translation */
-      s : _transform(rotZ(m[4]),s),
-      j : Joint(tranZ(m[3]),state[1],state[2])
+      s : _transform(rotz(m[4]),s),
+      j : Joint(tranz(m[3]),state[1],state[2])
     ) else (                    
       /* rotation */
-      s : _transform(tranZ(m[3]),s),
-      j : Joint(rotZ(m[4]),state[1],state[2])
+      s : _transform(tranz(m[3]),s),
+      j : Joint(rotz(m[4]),state[1],state[2])
     ),
     _from_dh_list(rest(lst),vars,s,
-         if is(v=none) then j else addChild(v,j))
+         if is(v=none) then j else add_child(v,j))
   )
 )$
 
@@ -296,14 +296,14 @@ _get_urdf_joint(n) := block(
     nm : parse_string(xml_property(n,"name")),
     %1 : _lst2num(xml_property(%1,"xyz")),
     if is(tp="revolute") then (
-      if     is(%1[1]=1) then %1:rotX(nm) 
-      elseif is(%1[2]=1) then %1:rotY(nm)
-      else   %1:rotZ(nm)
+      if     is(%1[1]=1) then %1:rotx(nm) 
+      elseif is(%1[2]=1) then %1:roty(nm)
+      else   %1:rotz(nm)
     )
     elseif is(tp="prismatic") then (
-      if     is(%1[1]=1) then %1:tranX(nm) 
-      elseif is(%1[2]=1) then %1:tranY(nm)
-      else   %1:tranZ(nm)
+      if     is(%1[1]=1) then %1:tranx(nm) 
+      elseif is(%1[2]=1) then %1:trany(nm)
+      else   %1:tranz(nm)
     ) else []
   ) else 
     %1 : [] ,
@@ -354,13 +354,13 @@ _from_urdf_list(lst,k,parent) := block(
     %1 : lst[k],
     if _urdf_jointp(%1) then (
       obj : _get_urdf_joint(%1), 
-      addChild(parent, obj),
+      add_child(parent, obj),
       _from_urdf_list(lst, %1[5], obj)
     ) else (
       obj : _get_urdf_link(%1),
-      addChild(parent, obj),
+      add_child(parent, obj),
       if emptyp(%1[5]) then 
-        addChild(obj,Joint([],[],[]))
+        add_child(obj,Joint([],[],[]))
       else (
         for v in %1[5] do _from_urdf_list(lst, v, obj),
         obj
@@ -383,13 +383,10 @@ from_urdf(fname) := block(
     _from_urdf_list(parts,elt[5],v)
   )
   else (
-    v : addChild(Joint([],[],[]), _get_urdf_link(elt)),
+    v : add_child(Joint([],[],[]), _get_urdf_link(elt)),
     for p in elt[5] do _from_urdf_list(parts, p, v),
     v
   )
-
-
-  
 
 )$
 

@@ -14,7 +14,7 @@ zermat(m) := emptyp(m) or (zerrow(first(m)) and zermat(rest(m)))$
 tst(eqv) := if zermat(eqv) then "Pass" else "Failed"$
 
 /* Tree from list of transformations */
-lst : [rotZ(q1),tranZ(1),rotY(q2),tranX(2),rotY(q3),tranX(3)]$
+lst : [rotz(q1),tranz(1),roty(q2),tranx(2),roty(q3),tranx(3)]$
 rbt1 : from_list(lst,[q1,q2,q3])$
 
 /* Forward kinematics */
@@ -63,9 +63,9 @@ draw_tree(rbt1, [q1=%pi/4, q2=-%pi/2, q3=%pi/2]);
 
 
 /* Find dynamics */
-jnt1 : Joint(rotZ(q1),[], Pos(0,0,0.346))$
-jnt2 : Joint(rotY(q2),[], Pos(0.312,0,0.324))$
-jnt3 : Joint(rotY(q3),[], Pos(0,0,1.075))$
+jnt1 : Joint(rotz(q1),[], Pos(0,0,0.346))$
+jnt2 : Joint(roty(q2),[], Pos(0.312,0,0.324))$
+jnt3 : Joint(roty(q3),[], Pos(0,0,1.075))$
 
 jnt1 ++ Link([1,0,0,1,0,1.01,0,0,0.1,550]) ++
 jnt2 ++ Link([1,0.01,0,1,0,1,0.2,0,0.2,250]) ++
