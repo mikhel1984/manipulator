@@ -13,11 +13,11 @@
 
 \section{About} 
 
-The \texttt{manipulator} library is developed for working with kinematic trees such as robotic manipulators in the \textbf{Maxima} computer algebra system. It is focused on generation of ``raw'' equations, additional simplification of result can be done later if needs. The library allows to do the following operations: 
+The \texttt{manipulator} library is developed for working with kinematic trees such as robotic manipulators in the \textbf{Maxima} computer algebra system. It is focused on the generation of ``raw'' equations, additional simplification of results can be done later if needs. The library allows to do the following operations: 
 \begin{itemize}
     \item define the kinematic tree structure manually or import it from URDF file 
     \item solve forward kinematics problem, find the Jacobian 
-    \item solve inverse dynamics problem, find matrices M, C and G 
+    \item solve inverse dynamics problem, find matrices M, C, and G 
     \item visualize robot structure and print the tree structure 
     \item use different parameterization for rotations
     \item save result in form of \textbf{Matlab} or \textbf{C} code
@@ -27,7 +27,7 @@ The \texttt{manipulator} library is developed for working with kinematic trees s
 
 \subsection{Kinematic tree} 
 
-The library deals with tree-like structures, which represent a sequence of links connected via joints. Each joint can be connected to only one link, but a link can have several joints (Fig. \ref{fig:kinematic_tree}). A joint can be fixed, rotational (revolute) or translational (prismatic). A link can be real (with inertial parameters) or virtual.  The proper tree model in this library must begins with the joint element. 
+The library deals with tree-like structures, which represent a sequence of links connected via joints. Each joint can be connected to only one link, but a link can have several joints (Fig. \ref{fig:kinematic_tree}). A joint can be fixed, rotational (revolute), or translational (prismatic). A link can be real (with inertial parameters) or virtual.  The proper tree model in this library must begin with the joint element. 
 % can I change it? 
 
 \begin{figure}[t]
@@ -39,11 +39,11 @@ The library deals with tree-like structures, which represent a sequence of links
 
 \subsection{Explicit tree structure definition} 
 
-The user can explicitly define links and joints and connect them to make tree. This method is the most flexible but time-consuming technique.  
+The user can explicitly define links and joints and connect them to make a tree. This method is the most flexible but time-consuming technique.  
 
-Links and joints are defined in form of the \textbf{Maxima} structures. Each joint object stores information about its location with respect to the previous joint and indexes of predecessor, successor and the object itself (\texttt{id}). If the join is movable, it includes function of transformation and torque value.  
+Links and joints are defined in form of the \textbf{Maxima} structures. Each joint object stores information about its location concerning to the previous joint and indexes of the predecessor, successor, and the object itself (\texttt{id}). If the join is movable, it includes a function of transformation and torque value.  
 
-The joint can be defined with function \texttt{Joint}. It takes 3 arguments: the first one is a transformation function, the second and third are rotation and position or the joint in the previous joint frame, the rotation is a matrix and position is a vector. 
+The joint can be defined with function \texttt{Joint}. It takes 3 arguments: the first one is a transformation function, the second and third are rotation and position of the joint in the previous joint frame, the rotation is a matrix and position is a vector. 
 The function of transformation defines not only the type of motion (such as \texttt{rotx} or \texttt{tranz}) but also the name of the joint angle and its derivatives. For example, it you define transformation function as \texttt{rotz(q1)}, then the joint velocity and acceleration called \texttt{dq1} and \texttt{ddq1} respectively. If you want to skip any argument of the transformation function, just use empty list, for example, \texttt{Joint([],[],[])} creates fixed joint with a unit transformation matrix and zero translation vector. 
 
 The link structure stores information about the object \texttt{id}, its predecessor and list of successors. If can additionally contain list of 10 inertial parameters:
@@ -52,15 +52,15 @@ The link structure stores information about the object \texttt{id}, its predeces
     \item $r_{mx}, r_{my}, r_{mz}$ - position of mass center w.r.t. to parent joint
     \item $m$ - mass of the link
 \end{itemize}
-The link can be created using function \texttt{Link}, that takes the list of inertial parameters of the empty list in the case of virtual link. 
+The link can be created using function \texttt{Link}, which takes the list of inertial parameters of the empty list in the case of the virtual link. 
 
-Links and joints can be connected with the help of function \texttt{add\_child}. It is more convenient to use the infix operator ``\texttt{++}''. It returns pointer to the last term that allows to connect a long chain of sequential elements. When you connect link to link or joint to joint, the intermediate element (virtual joint or link respectively) is generated automatically.  
+Links and joints can be connected with the help of function \texttt{add\_child}. It is more convenient to use the infix operator ``\texttt{++}''. It returns a pointer to the last term that allows connecting a long chain of sequential elements. When you connect a link to a link or joint to joint, the intermediate element (virtual joint or link respectively) is generated automatically.  
 
 Pointer to the object (link or joint) can be obtained using function \texttt{by\_id} if the object \texttt{id} is known. If the joint variable is known, the corresponding joint can be found with the help of \texttt{by\_name} function. 
 
 \subsubsection{Example: making tree}
 
-The following code allows to create the sequence shown in figure \ref{fig:kinematic_tree} and print its structure. All the link here can be defined implicitly except the ``link2'' that is required to make the second branch. 
+The following code allows to create sequence shown in figure \ref{fig:kinematic_tree} and print its structure. All the links here can be defined implicitly except the ``link2'' that is required to make the second branch. 
 \begin{verbatim}
 lnk2 : Link([])$ 
 /* Save pointer to the last joint */
@@ -75,7 +75,7 @@ print_tree(seq);
 \subsubsection{Example: 3 link manipulator}
 \label{ex:3link}
 
-Let us define structure of a simple 3-link manipulator. Figure \ref{fig:3_links} shows its initial initial configuration. Inertial parameters here are calculated using auxiliary functions from the file \textit{inertia.mac}.  
+Let us define the structure of a simple 3-link manipulator. Figure \ref{fig:3_links} shows its initial initial configuration. Inertial parameters here are calculated using auxiliary functions from the file \textit{inertia.mac}.  
 
 \begin{figure}[t]
     \centering
@@ -108,11 +108,11 @@ by_name(q2);        /* the same as "jnt2" */
 
 \subsection{List of transformations}
 
-You can use the known sequence of transformations along the manipulator to define its structure with the help of \texttt{from\_list} function. It has two arguments, the first one is the list of transformations, while the second is the list of joint names. The first argument can include any number of translations and rotations with variable or constant parameters. Sequential constant matrices are multiplied to simplified the result. The list of arguments allows to additional parameters in the robot structure. 
+You can use the known sequence of transformations along the manipulator to define its structure with the help of \texttt{from\_list} function. It has two arguments, the first one is the list of transformations, while the second is the list of joint names. The first argument can include any number of translations and rotations with variable or constant parameters. Sequential constant matrices are multiplied to simplified the result. The list of arguments allows to include additional parameters in the robot structure. 
 
 \subsubsection{Example: list of transformations} 
 
-Kinematical structure of the manipulator (Ex. \ref{ex:3link}) can be defined as follows. 
+The kinematical structure of the manipulator (Ex. \ref{ex:3link}) can be defined as follows. 
 
 \begin{verbatim}
 seq : [rotz(q1),tranz(0.3),roty(q2),tranx(0.5),
@@ -126,7 +126,7 @@ If you prefer DH convention for the manipulator description, send it to the func
 
 \subsubsection{Example: list of DH parameters}
 
-Let us rewrite kinematic structure of Ex. \ref{ex:3link} using DH parameters.
+Let us rewrite the kinematic structure of Ex. \ref{ex:3link} using DH parameters.
 
 \begin{verbatim}
 seq : [
@@ -151,15 +151,15 @@ rbt : from_urdf("tests/3links.urdf")$
 
 \section{Main operations}
 
-Definition of the kinematic tree structure does not includes any additional operations other that element connection. For further analysis you have to use additional functions. Almost in any case the first procedure should be \texttt{update\_state}. It calculates the kinematic relations between the tree components. Argument of this function is any joint of the robot (if you defined the manipulator using any \texttt{from\_} function, it is the last joint). 
+Definition of the kinematic tree structure does not include any additional operations other than element connection. For further analysis, you have to use additional functions. Almost in any case, the first procedure should be \texttt{update\_state}. It calculates the kinematic relations between the tree components. The argument of this function is any joint of the robot (if you defined the manipulator using any \texttt{from\_} function, it is the last joint). 
 
 \subsection{Forward kinematics}
 
-For each joint you can call function \texttt{get\_pos} to get the position vector of this joint in the robot base frame. Likewise, the \texttt{get\_rot} returns the joint rotation matrix. 
+For each joint, you can call function \texttt{get\_pos} to get the position vector of this joint in the robot base frame. Likewise, the \texttt{get\_rot} returns the joint rotation matrix. 
 
 \subsubsection{Example: FK}
 
-For the manipulator (Ex. \ref{ex:3link}) we can solve FK problem. 
+For the manipulator (Ex. \ref{ex:3link}) we can solve the FK problem. 
 
 \begin{verbatim}
 /* calculate kinematics */
@@ -172,7 +172,7 @@ ev(get_rot(jnt2), q1:%pi/4, q2:%pi/3);
 
 \subsection{Differential kinematics}
 
-The Jacobian allows to connect velocity of end-effector (or other part of the robot) with the rate of change in joint space. Use function \texttt{Jacobian} to calculate it.  
+The Jacobian allows connecting the velocity of the end-effector (or another part of the robot) with the rate of change in joint space. Use function \texttt{Jacobian} to calculate it.  
 
 \subsubsection{Example: Jacobian} 
 
@@ -187,7 +187,7 @@ res : ev(jac, q1:%pi/2, q2:%pi/3, q3:%pi/4);
 \subsection{Inverse dynamics}
 \label{sec:dyn}
 
-Dynamics calculation in the \texttt{manipulator} is based on the recursive Newton-Euler algorithm and implemented in the function \texttt{update\_dynamics}. It uses the results of \texttt{update\_state} evaluation and have to be called only when the kinematic tree was created. To extract the joint torque expression for some joint from the tree structure one can call function \texttt{get\_torque}.
+Dynamics calculation in the \texttt{manipulator} is based on the recursive Newton-Euler algorithm and implemented in the function \texttt{update\_dynamics}. It uses the results of \texttt{update\_state} evaluation and has to be called only when the kinematic tree was created. To extract the joint torque expression for any joint from the tree structure one can call function \texttt{get\_torque}.
 
 \subsubsection{Example: dynamics} 
 
@@ -207,7 +207,7 @@ res : ev([get_torque(jnt1),get_torque(jnt2),
 
 \subsection{Dynamics matrices} 
 
-The results, obtained in the section \ref{sec:dyn} can be transformed into the matrix representation with the help of function \texttt{M\_C\_G\_J}. It returns list with four elements: the inertia matrix, the matrix of Coriolis and centrifugal terms, vector of gravity components and the list of joints that corresponds to the sequence of elements in the found matrices. 
+The results, obtained in the section \ref{sec:dyn} can be transformed into the matrix representation with the help of function \texttt{M\_C\_G\_J}. It returns a list with four elements: the inertia matrix, the matrix of Coriolis and centrifugal terms, vector of gravity components, and the list of joints that corresponds to the sequence of elements in the found matrices. 
 
 \subsubsection{Example: matrices} 
 
@@ -226,11 +226,11 @@ res : ev(M . transpose(ddqs) + C . transpose(dqs) + G, par)$
 
 \subsection{Drawing}
 
-Use the function \texttt{draw\_tree} to plot the robot structure. It takes two arguments: the robot object and the list of joint angles. If the joint list is empty (or some angles are skipped) they assumed to be zero. 
+Use the function \texttt{draw\_tree} to plot the robot structure. It takes two arguments: the robot object and the list of joint angles. If the joint list is empty (or some angles are skipped) they are assumed to be zero. 
 
 \subsubsection{Example: drawing}
 
-Let us visualize the manipulator in the Ex. \ref{ex:3link} when the first joint is $\pi/6$, the second is $\pi/4$, and the third is $-\pi/4$. Assume that \texttt{update\_state} method has been called. The result is shown in Figure \ref{fig:drawing}. Red, green and blue lines correspond to X, Y and Z respectively.
+Let us visualize the manipulator in the Ex. \ref{ex:3link} when the first joint is $\pi/6$, the second is $\pi/4$, and the third is $-\pi/4$. Assume that \texttt{update\_state} method has been called. The result is shown in Figure \ref{fig:drawing}. Red, green, and blue lines correspond to X, Y, and Z respectively.
 \begin{verbatim}
 draw_tree(rbt,[q1=%pi/6,q2=%pi/4,q3=-%pi/4]);
 \end{verbatim}
@@ -244,7 +244,7 @@ draw_tree(rbt,[q1=%pi/6,q2=%pi/4,q3=-%pi/4]);
 
 \section{Rotations}
 
-The \texttt{manipulator} package contains methods for transformation between different object orientation descriptions. These functions are located in the \textit{rotations.mac} file. The main form of the orientation description in this package is $3 \times 3$ rotation matrix. It can be used in both numerical and symbolical forms. Other parameterisation methods, such as Euler angles, quaternions or pairs of axis and angle can be found from the matrix representation numerically only.  
+The \texttt{manipulator} package contains methods for transformation between different object orientation descriptions. These functions are located in the \textit{rotations.mac} file. The main form of the orientation description in this package is the $3 \times 3$ rotation matrix. It can be used in both numerical and symbolical forms. Other parameterization methods, such as Euler angles, quaternions, or pairs of axis and angles can be found from the matrix representation numerically only.  
 
 \subsubsection{Example: rotations} 
 
@@ -275,7 +275,7 @@ save_as_c("Foo", foo);
 
 \section{Inertial parameters}
 
-There are some auxiliary functions for calculation the inertia parameters of simple bodies, defined in the \textit{inertia.mac} file. They allows to find elements of the inertia tensor, total mass and center of gravity location based on geometric parameters and the material density. Only two types of the robot links are assumed here: cylinders and cuboids, and the parameters are calculated with respect to the edge with lower coordinate. 
+There are some auxiliary functions for calculation the inertia parameters of simple bodies, defined in the \textit{inertia.mac} file. They allow finding elements of the inertia tensor, total mass, and center of gravity location based on geometric parameters and the material density. Only two types of robot links are assumed here: cylinders and cuboids, and the parameters are calculated for the edge with lower coordinate. 
 
 \subsubsection{Example: inertial parameters}
 

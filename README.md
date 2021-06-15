@@ -1,6 +1,6 @@
 # manipulator
 
-Maxima CAS library for the analysis of kinematic trees. It includes the following files:
+**Maxima** CAS library for the analysis of kinematic trees. It includes the following files:
 
 * _manipulator.mac_ - main methods for the manipulator analysis 
 * _rotations.mac_ - parametrization of rotations 
