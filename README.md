@@ -1,6 +1,6 @@
 # manipulator
 
-**Maxima** CAS library for the analysis of kinematic trees. It includes the following files:
+[Maxima](https://maxima.sourceforge.io/) Computer Algebra System library for the analysis of kinematic trees. It includes the following files:
 
 * _manipulator.mac_ - main methods for the manipulator analysis 
 * _rotations.mac_ - parametrization of rotations 
@@ -11,5 +11,5 @@
 Call 
 
     maxima -b tests/run.mac 
-    
+
 to execute the tests. 
