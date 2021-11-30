@@ -334,6 +334,8 @@ L : inertia_beam_x(0.3, 0.03, 0, 2700);
 \subsection{rotations.mac}
 
 \begin{itemize}
+    \item \texttt{Qu\_AA(k,q)} - get quaternion $[w,x,y,z]$ from the axis $k = [x,y,z]$ and angle $q$ 
+    \item \texttt{Qu2AA(v)} - transform quaternion $v = [w,x,y,z]$ into the angle and axis form 
     \item \texttt{R\_AA(k,q)} - get rotation matrix from the axis $k = [x,y,z]$ and angle $q$ 
     \item \texttt{R\_Qu(v)} - get rotation matrix from the quaternion elements $v = [w,x,y,z]$
     \item \texttt{R\_RPW(r,p,w)} - get rotation matrix from the roll-pitch-yaw angles 

@@ -167,8 +167,6 @@ R2AA(m) := block(
 )$
 
 /* Quaternion from axis - angle */
-/* Axis - angle is '[kx,ky,kz], q' */
-/* Quaternion is [w,i,j,k] */
 Qu_AA(k,q) := block(
   [ %1 : q/2, %2 ],
   %2 : sin(%1),
