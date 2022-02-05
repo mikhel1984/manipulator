@@ -15,17 +15,22 @@ defrule(usepow, _var1_ ^ _var2_, pow(_var1_, _var2_))$
 /* simplify the obtained string */
 _simpstr(expr) := ssubst("-", "-1.0*", string(expr))$
 
-/* Export variable for C code, save result to file. 
- *   name - string with name 
- *   expr - matrix, list or expression
- */
-save_as_c(name,expr) := block(
-  [ f, R, C, r, c ],
-  f : openw(sconcat("get_",name,".c")),
-  /* reminder */
-  printf(f, "/* Variables ~{~a ~}*/~%", listofvars(expr)), 
-  /* prepare */
-  expr : apply1(float(expr), usepow),
+/* apply optimization and transform result into list */
+_opt_to_list(expr) := block(
+  [ f, ll : [] ],
+  f : optimize(expr),
+  for i : 2 thru (length(f)-1) do
+    ll : endcons(part(f,i), ll),
+  /* list of variables and final expression */
+  [ll, last(f)]
+)$
+
+/* name prefix for intermediate variables */
+optimprefix : VAR$
+
+/* print expression into C file */
+_save_c_expr(f,expr) := block(
+  [ R, C, r, c ],
   if matrixp(expr) then (
     /* matrix */
     R : length(expr), C : length(expr[1]),
@@ -43,23 +48,12 @@ save_as_c(name,expr) := block(
   ) else (
     /* simple expression */
     printf(f, "double ~a = ~a;~%", name, _simpstr(expr))
-  ), 
-  close(f)
+  ) 
 )$
 
-/* Export variable for matlab code, save result to file.
- *   name - string with name 
- *   expr - matrix, list or expression 
- */
-save_as_matlab(name,expr) := block (
-  [ f, R, C, r, c ],
-  f : openw(sconcat("get_",name,".m")),
-  /* title */ 
-  R : listofvars(expr), /* variables, reuse */
-  printf(f, "functoin ~a = get_~a(~a~{,~a~})~%", 
-          name, name, first(R), rest(R)), 
-  /* prepare */
-  expr : float(expr),
+/* print expression into Matlab file */
+_save_matlab_expr(f,expr) := block(
+  [ R, C, r, c ],
   if matrixp(expr) then (
     R : length(expr), C : length(expr[1]),
     printf(f, "  ~a = zeros(~d,~d);~%", name, R, C),
@@ -75,8 +69,74 @@ save_as_matlab(name,expr) := block (
   ) else (
     /* simple expression */
     printf(f, "  ~a = ~a;~%", name, _simpstr(expr))
-  ), 
+  ) 
+)$
+
+/* Export variable for C code, save result to file. 
+ *   name - string with name 
+ *   expr - matrix, list or expression
+ */
+save_as_c(name,expr) := block(
+  [ f ],
+  f : openw(sconcat("get_",name,".c")),
+  /* reminder */
+  printf(f, "/* Variables ~{~a ~}*/~%", listofvars(expr)), 
+  /* prepare and write */
+  _save_c_expr(f, apply1(float(expr), usepow)),
+  close(f)
+)$
+
+/* Optimize evaluation and seva result to C file.
+ *   name - string with name 
+ *   expr - matrix, list or expression
+ */
+save_as_c_opt(name,expr) := block(
+  [ f, vars ],
+  f : openw(sconcat("get_",name,".c")),
+  /* reminder */
+  printf(f, "/* Variables ~{~a ~}*/~%", listofvars(expr)), 
+  /* prepare */
+  [vars, expr] : _opt_to_list(expr),
+  for v in apply1(float(vars), usepow) do
+    printf(f, "double ~a = ~a;~%", lhs(v), _simpstr(rhs(v))),
+  /* write result */
+  _save_c_expr(f, apply1(float(expr), usepow)),
+  close(f)
+)$
+
+/* Export variable for matlab code, save result to file.
+ *   name - string with name 
+ *   expr - matrix, list or expression 
+ */
+save_as_matlab(name,expr) := block (
+  [ f, v ],
+  f : openw(sconcat("get_",name,".m")),
+  /* title */ 
+  v : listofvars(expr), /* variables, reuse */
+  printf(f, "functoin ~a = get_~a(~a~{,~a~})~%", 
+          name, name, first(v), rest(v)), 
+  /* prepare and write */
+  _save_matlab_expr(f, float(expr)),
   printf(f, "end ~%"), 
   close(f)
 )$
 
+/* Optimize evaluation and save result to Matlab file.
+ *   name - string with name 
+ *   expr - matrix, list or expression 
+ */
+save_as_matlab_opt(name,expr) := block (
+  [ f, vars ],
+  f : openw(sconcat("get_",name,".m")),
+  /* title */ 
+  v : listofvars(expr), /* variables, reuse */
+  printf(f, "functoin ~a = get_~a(~a~{,~a~})~%", 
+          name, name, first(v), rest(v)), 
+  /* prepare */
+  [vars, expr] : _opt_to_list(expr),
+  for v in float(vars) do
+    printf(f, "  ~a = ~a;~%", lhs(v), _simpstr(rhs(v))),
+  _save_matlab_expr(f, float(expr)),
+  printf(f, "end ~%"), 
+  close(f)
+)$
